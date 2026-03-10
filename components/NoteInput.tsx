@@ -111,15 +111,31 @@ function IconSpinner() {
   );
 }
 
+// Human-readable messages for each Web Speech API error code
+const SPEECH_ERROR_MESSAGES: Record<string, string> = {
+  'audio-capture':      'Microphone not accessible. Check it is connected and not in use by another app.',
+  'not-allowed':        'Microphone access was blocked. Allow access in your browser settings and try again.',
+  'no-speech':          'No speech detected. Try speaking clearly after tapping the button.',
+  'network':            'A network error occurred during recognition. Check your connection.',
+  'service-not-allowed':'Speech recognition is not available in this context.',
+  'bad-grammar':        'Speech recognition encountered a grammar error.',
+  'language-not-supported': 'Your browser does not support the selected language.',
+};
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
+
+// Tracks the microphone permission lifecycle so we can show the right UI
+// without asking the browser repeatedly.
+type MicStatus = 'idle' | 'requesting' | 'granted' | 'denied' | 'unavailable';
 
 export default function NoteInput() {
   const [mode, setMode] = useState<NoteSource>('TEXT');
   const [text, setText] = useState('');
   const [transcript, setTranscript] = useState('');
   const [isRecording, setIsRecording] = useState(false);
+  const [micStatus, setMicStatus] = useState<MicStatus>('idle');
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<NoteApiResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -130,13 +146,9 @@ export default function NoteInput() {
   // Audio recording
   // ---------------------------------------------------------------------------
 
-  const startRecording = useCallback(() => {
-    const SpeechRecognitionAPI = getSpeechRecognition();
-    if (!SpeechRecognitionAPI) {
-      setError('Speech recognition is not supported in this browser. Try Chrome or Edge.');
-      return;
-    }
-
+  // Starts the SpeechRecognition session. Assumes permission is already granted
+  // (micStatus === 'granted') — called only after getUserMedia resolves.
+  const beginRecognition = useCallback((SpeechRecognitionAPI: typeof SpeechRecognition) => {
     const recognition = new SpeechRecognitionAPI();
     recognition.continuous = false;
     recognition.interimResults = true;
@@ -154,9 +166,11 @@ export default function NoteInput() {
     };
 
     recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
-      if (event.error !== 'aborted') {
-        setError(`Microphone error: ${event.error}`);
+      if (event.error === 'aborted') return; // user stopped intentionally
+      if (event.error === 'not-allowed') {
+        setMicStatus('denied');
       }
+      setError(SPEECH_ERROR_MESSAGES[event.error] ?? `Microphone error: ${event.error}`);
       setIsRecording(false);
     };
 
@@ -168,6 +182,56 @@ export default function NoteInput() {
     setTranscript('');
     setError(null);
   }, []);
+
+  const startRecording = useCallback(async () => {
+    // 1. Check Web Speech API support
+    const SpeechRecognitionAPI = getSpeechRecognition();
+    if (!SpeechRecognitionAPI) {
+      setMicStatus('unavailable');
+      return;
+    }
+
+    // 2. If permission already confirmed this session, go straight to recording
+    if (micStatus === 'granted') {
+      beginRecognition(SpeechRecognitionAPI);
+      return;
+    }
+
+    // 3. Check that getUserMedia is available (requires HTTPS or localhost)
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setMicStatus('unavailable');
+      setError('Microphone access requires a secure connection (HTTPS).');
+      return;
+    }
+
+    // 4. Request microphone permission — this triggers the browser prompt
+    setMicStatus('requesting');
+    setError(null);
+
+    let stream: MediaStream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'NotAllowedError') {
+        // User clicked Block, or the site is already blocked in browser settings
+        setMicStatus('denied');
+      } else if (err instanceof DOMException && err.name === 'NotFoundError') {
+        setMicStatus('unavailable');
+        setError('No microphone found. Plug one in and try again.');
+      } else {
+        setMicStatus('idle');
+        setError('Could not access the microphone. Try refreshing the page.');
+      }
+      return;
+    }
+
+    // 5. Release the permission-test stream — SpeechRecognition manages its own audio
+    stream.getTracks().forEach((t) => t.stop());
+    setMicStatus('granted');
+
+    // 6. Now start recognition
+    beginRecognition(SpeechRecognitionAPI);
+  }, [micStatus, beginRecognition]);
 
   const stopRecording = useCallback(() => {
     recognitionRef.current?.stop();
@@ -233,7 +297,13 @@ export default function NoteInput() {
               <IconPen /> Type
             </button>
             <button
-              onClick={() => { setMode('AUDIO'); setError(null); }}
+              onClick={() => {
+                setMode('AUDIO');
+                setError(null);
+                // Eagerly check for Speech API support so the UI can
+                // show the unsupported state before the user taps the mic button.
+                if (!getSpeechRecognition()) setMicStatus('unavailable');
+              }}
               className={`flex items-center gap-1.5 rounded-full px-3.5 py-1.5 transition-all duration-200 ${
                 mode === 'AUDIO'
                   ? 'bg-white text-stone-800 shadow-sm'
@@ -260,35 +330,73 @@ export default function NoteInput() {
             />
           ) : (
             <div className="flex flex-col items-center gap-4 py-2">
-              {/* Record button with ping animation */}
-              <div className="relative">
-                {isRecording && (
-                  <span className="absolute inset-0 rounded-full bg-red-400 animate-ping opacity-25" />
-                )}
-                <button
-                  onClick={isRecording ? stopRecording : startRecording}
-                  className={`relative flex h-16 w-16 items-center justify-center rounded-full transition-all duration-300 ${
-                    isRecording
-                      ? 'bg-red-500 text-white shadow-[0_0_0_4px_rgba(239,68,68,0.15)]'
-                      : 'bg-stone-100 text-stone-500 hover:bg-stone-200 hover:text-stone-700'
-                  }`}
-                  aria-label={isRecording ? 'Stop recording' : 'Start recording'}
-                >
-                  <IconMic />
-                </button>
-              </div>
 
-              {/* Transcript / status */}
-              {isRecording && !transcript && (
-                <p className="text-sm text-stone-400 animate-pulse">Listening…</p>
+              {micStatus === 'unavailable' ? (
+                /* ── Browser doesn't support Web Speech API ── */
+                <div className="flex flex-col items-center gap-2 py-2 text-center">
+                  <span className="text-2xl">🎙️</span>
+                  <p className="text-sm font-medium text-stone-500">
+                    Speech recognition not supported
+                  </p>
+                  <p className="max-w-[220px] text-xs text-stone-400">
+                    Try Chrome or Edge on desktop. Switch to Type mode to continue.
+                  </p>
+                </div>
+              ) : micStatus === 'denied' ? (
+                /* ── User denied (or OS blocked) microphone access ── */
+                <div className="flex flex-col items-center gap-2 py-2 text-center">
+                  <span className="flex h-12 w-12 items-center justify-center rounded-full bg-stone-100 text-stone-400">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                    </svg>
+                  </span>
+                  <p className="text-sm font-medium text-stone-600">
+                    Microphone access blocked
+                  </p>
+                  <p className="max-w-[240px] text-xs leading-relaxed text-stone-400">
+                    Allow microphone access in your browser&apos;s site settings, then refresh and try again.
+                  </p>
+                </div>
+              ) : (
+                /* ── Normal record button ── */
+                <>
+                  <div className="relative">
+                    {isRecording && (
+                      <span className="absolute inset-0 rounded-full bg-red-400 animate-ping opacity-25" />
+                    )}
+                    <button
+                      onClick={isRecording ? stopRecording : startRecording}
+                      disabled={micStatus === 'requesting'}
+                      className={`relative flex h-16 w-16 items-center justify-center rounded-full transition-all duration-300 ${
+                        isRecording
+                          ? 'bg-red-500 text-white shadow-[0_0_0_4px_rgba(239,68,68,0.15)]'
+                          : micStatus === 'requesting'
+                          ? 'bg-stone-100 text-stone-300 cursor-wait'
+                          : 'bg-stone-100 text-stone-500 hover:bg-stone-200 hover:text-stone-700'
+                      }`}
+                      aria-label={isRecording ? 'Stop recording' : 'Start recording'}
+                    >
+                      {micStatus === 'requesting' ? <IconSpinner /> : <IconMic />}
+                    </button>
+                  </div>
+
+                  {/* Status text */}
+                  {micStatus === 'requesting' && (
+                    <p className="text-sm text-stone-400">Waiting for permission…</p>
+                  )}
+                  {isRecording && !transcript && (
+                    <p className="text-sm text-stone-400 animate-pulse">Listening…</p>
+                  )}
+                  {transcript ? (
+                    <p className="max-w-xs text-center text-sm leading-relaxed text-stone-600">
+                      {transcript}
+                    </p>
+                  ) : !isRecording && micStatus !== 'requesting' ? (
+                    <p className="text-sm text-stone-300">Tap to start speaking</p>
+                  ) : null}
+                </>
               )}
-              {transcript ? (
-                <p className="max-w-xs text-center text-sm leading-relaxed text-stone-600">
-                  {transcript}
-                </p>
-              ) : !isRecording ? (
-                <p className="text-sm text-stone-300">Tap to start speaking</p>
-              ) : null}
+
             </div>
           )}
         </div>
