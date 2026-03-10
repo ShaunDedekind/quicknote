@@ -169,3 +169,22 @@ Originally used `z.string().datetime({ offset: true })` which rejected Claude's 
    - Nudge/reminder delivery mechanism (email via Gmail, or push notifications)
    - Rate limiting on API routes
    - Error boundary in UI
+
+---
+
+## Future Ideas
+
+### Correction flow
+A "correct" button on each note card (small edit icon, unobtrusive) that opens a voice or text input accepting natural-language feedback. Claude re-processes the original note with the correction as added context and returns an updated expansion. The card updates in place.
+
+Example interactions:
+- "Grace is a co-worker" → category flips PERSONAL → WORK, description updated
+- "This is actually next Friday, not this Friday" → dueDate shifts forward one week
+- "Add a nudge the day before" → nudgeDates updated
+
+**What gets stored in the DB:**
+- The correction text alongside the original note
+- A `corrections` table (or a JSON column on `Note`) logging `{ originalExpansion, correctionText, revisedExpansion }` pairs
+
+**Longer-term — prompt learning:**
+Corrections accumulate per-user as labelled examples (`note content + correction → correct output`). A future prompt improvement pass injects the user's top N correction patterns as few-shot examples in the system prompt, teaching Claude the user's personal context (who their co-workers are, which category their recurring tasks belong to, preferred reminder timing, etc.). This turns corrections into a lightweight personalisation layer without fine-tuning.
