@@ -4,7 +4,8 @@
       "Skill(claude-api)",
       "Skill(claude-api:*)",
       "Bash(npm install:*)",
-      "Bash(npx prisma:*)"
+      "Bash(npx prisma:*)",
+      "Bash(npm run:*)"
     ]
   }
 }

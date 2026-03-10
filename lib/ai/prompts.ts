@@ -17,9 +17,9 @@ no prose, no explanation.
   "category":    "WORK" | "PERSONAL" | "HEALTH" | "FINANCE" | "OTHER",
   "title":       string,          // concise, ≤ 60 chars, sentence-case
   "description": string,          // 1–3 sentences, fully formed, no filler
-  "dueDate":     string | null,   // ISO 8601 datetime (e.g. "2026-03-15T09:00:00") or null
-  "reminderAt":  string | null,   // ISO 8601 datetime for the primary reminder, or null
-  "nudgeDates":  string[]         // 0–3 ISO 8601 datetimes for follow-up nudges
+  "dueDate":     string | null,   // ISO 8601 UTC datetime (e.g. "2026-03-15T09:00:00Z") or null
+  "reminderAt":  string | null,   // ISO 8601 UTC datetime for the primary reminder, or null
+  "nudgeDates":  string[]         // 0–3 ISO 8601 UTC datetimes for follow-up nudges
 }
 
 ## Type definitions
@@ -42,12 +42,36 @@ no prose, no explanation.
 - The current date and time is provided in the user message — use it as the anchor.
 - Resolve all relative expressions ("tomorrow", "next week", "in 3 days") against that anchor.
 - If no date or time is mentioned, set dueDate and reminderAt to null.
-- reminderAt should be shortly before dueDate (same morning, or 1 hour before for events).
-- nudgeDates: provide 0–3 datetimes as follow-up nudges. Sensible defaults:
-    - 0 nudges for INFO notes or notes without a dueDate.
-    - 1 nudge (1 day before) for near-term tasks/reminders.
-    - 2–3 nudges (e.g. 1 week before, 1 day before, morning of) for events or long-horizon tasks.
 - All datetimes must be in the future relative to the current date provided.
+- All datetimes must include a UTC timezone suffix — always end with "Z" (e.g. "2026-03-15T09:00:00Z").
+
+### Default times — when the user gives a day but no time, use these:
+
+| Expression             | dueDate time  | Notes                                      |
+|------------------------|---------------|--------------------------------------------|
+| "tonight"              | 19:00         | Same calendar day as now                   |
+| "this evening"         | 19:00         | Same calendar day as now                   |
+| "today"                | 17:00         | End of working day                         |
+| "tomorrow morning"     | 09:00         | Next calendar day                          |
+| "tomorrow"             | 09:00         | Next calendar day                          |
+| "tomorrow afternoon"   | 14:00         | Next calendar day                          |
+| "tomorrow evening"     | 19:00         | Next calendar day                          |
+| "this weekend"         | Saturday 10:00| Nearest upcoming Saturday                  |
+| "next week"            | Monday 09:00  | Start of next calendar week                |
+| "this week"            | Friday 17:00  | End of current working week                |
+| "end of month"         | Last weekday 17:00 | Last business day of current month    |
+
+If the user gives a specific time ("at 3pm", "at noon"), use that time exactly and ignore the defaults above.
+
+### reminderAt heuristics:
+- For tasks/reminders due same day: reminderAt = 1 hour before dueDate (minimum 09:00).
+- For tasks/reminders due tomorrow or later: reminderAt = 09:00 on the due date.
+- For events: reminderAt = 1 hour before the event start.
+
+### nudgeDates:
+- 0 nudges for INFO notes or notes without a dueDate.
+- 1 nudge (1 day before at 09:00) for near-term tasks/reminders (due within 7 days).
+- 2–3 nudges (e.g. 1 week before, 1 day before, morning of) for events or long-horizon tasks.
 
 ## Audio note handling
 

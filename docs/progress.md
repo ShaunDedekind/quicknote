@@ -1,7 +1,7 @@
 # QuickNote — Session Progress
 
 > Keep this file up to date. Read it at the start of every session before touching code.
-> Last updated: session 1 (scaffold + core AI pipeline + UI)
+> Last updated: session 2 (mobile-first redesign + bottom tab layout)
 
 ---
 
@@ -43,22 +43,19 @@
 
 ### UI — `app/` + `components/`
 - `app/layout.tsx` — metadata updated ("QuickNote")
-- `app/globals.css` — `@keyframes slide-up` added
-- `app/page.tsx` — clean hero page: brand header + `<NoteInput />`
-- `components/NoteInput.tsx` — **fully implemented**:
-  - Text / Speak mode toggle (pill)
-  - Text mode: textarea with ⌘ Enter submit
-  - Audio mode: Web Speech API recording with `animate-ping` pulse, live transcript display
-  - Submit POSTs to `/api/notes/expand`
-  - Loading state with spinner
-  - Result card: type label, category badge (colour-coded), title, description, due date, reminder time, nudge date pills, "Start a new note" reset
-  - Error display with `slide-up` animation
-  - All typed — no `any`; webkit SpeechRecognition handled via `WindowWithSpeech` interface
+- `app/globals.css` — `@keyframes slide-up` + `@keyframes fade-in` added
+- `app/page.tsx` — renders `<AppShell />`
+- `components/AppShell.tsx` — `'use client'` shell managing tab state + in-memory `LocalNote[]` state; calls `/api/notes/expand` in background, updates note from PENDING → EXPANDED
+- `components/BottomTabBar.tsx` — 2-tab bar (Record mic, Notes list) with filled circle active state + note count badge; exports `Tab` type
+- `components/RecordTab.tsx` — hero mic screen: large 88px mic button, auto-submit on speech end, "Got it ✓" confirmation overlay, text fallback input, full mic permission state machine (`MicStatus`), auto-submit fires `onNoteSubmit` prop immediately (fire-and-forget)
+- `components/NoteCard.tsx` — note card with swipe gestures (left = delete/red, right = done/green), urgency dot (red/amber/green based on due date), category pill + border accent, PENDING loading skeleton, ERROR state
+- `components/ListTab.tsx` — scrollable notes list, empty state with document icon + hint
+- `lib/speech-api.d.ts` — ambient declaration for `SpeechRecognition`, `SpeechRecognitionEvent`, `SpeechRecognitionErrorEvent` (TypeScript's lib.dom.d.ts is missing these)
+- `lib/types.ts` — added `LocalNote` interface for client-side in-memory note state
 
 ### Other component stubs (not yet implemented)
-- `components/AudioRecorder.tsx` — placeholder `'use client'` stub (recording is currently inline in NoteInput)
-- `components/NoteCard.tsx` — placeholder
-- `components/NoteList.tsx` — placeholder
+- `components/AudioRecorder.tsx` — placeholder `'use client'` stub
+- `components/NoteList.tsx` — placeholder (superseded by ListTab)
 - `components/CategoryBadge.tsx` — placeholder
 
 ### Page stubs
@@ -75,15 +72,13 @@
 
 ## What is working right now
 
-The end-to-end AI expansion flow works in the browser:
+Full mobile-first UI with bottom tab navigation:
 
-1. User types a note (or speaks via Web Speech API)
-2. Clicks "Expand note →"
-3. `POST /api/notes/expand` calls Claude Sonnet 4.6
-4. Structured JSON is validated and returned
-5. Result displays in the UI with title, description, category, dates, nudges
+1. **Record tab (default):** Tap the large mic button → grant permission once → speak → recognition auto-submits on silence; "Got it ✓" confirmation shows immediately; or type a note in the text fallback
+2. **Background expansion:** `AppShell` fires `POST /api/notes/expand` in the background, adds a PENDING card to the list, updates it to EXPANDED when Claude responds
+3. **Notes tab:** Scrollable list of all captured notes; PENDING cards show a loading skeleton; EXPANDED cards show category pill, urgency dot, title, due date; swipe left to delete, swipe right to mark done
 
-To test: `npm run dev`, open `http://localhost:3000`, type a note like "remind me to call the dentist on Friday afternoon".
+To test: `npm run dev`, open `http://localhost:3000`; the app renders in a 390px mobile frame centered on desktop.
 
 ---
 
@@ -123,6 +118,12 @@ The `components/AudioRecorder.tsx` stub exists but recording logic is currently 
 
 ### No nudge/reminder scheduling engine yet
 Claude generates nudge dates as part of the expansion, but nothing actually sends notifications. This is a future concern — will need a cron job or a background queue when the app is deployed.
+
+### Notes are in-memory only (no persistence yet)
+`AppShell` holds `notes: LocalNote[]` in React state — refreshing the page loses all notes. This is intentional until the DB is wired.
+
+### NoteInput.tsx is superseded
+The original `components/NoteInput.tsx` still exists but is no longer used (replaced by `RecordTab.tsx` + `AppShell.tsx`). It can be deleted when convenient.
 
 ---
 

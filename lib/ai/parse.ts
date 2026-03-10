@@ -9,7 +9,7 @@ import type { ExpandedNoteFields } from '@/lib/types';
 
 const isoDateSchema = z
   .string()
-  .datetime({ offset: true, message: 'Expected an ISO 8601 datetime string' })
+  .refine((s) => !isNaN(Date.parse(s)), 'Expected a valid ISO 8601 datetime string')
   .transform((s) => new Date(s));
 
 const expansionResponseSchema = z.object({

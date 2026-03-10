@@ -79,6 +79,27 @@ export interface ExpandedNoteFields {
 }
 
 // ---------------------------------------------------------------------------
+// Client-side in-memory note (used before DB is wired)
+// Mirrors the DB shape but lives in React state; dates are real Date objects.
+// ---------------------------------------------------------------------------
+
+export interface LocalNote {
+  id: string;
+  rawContent: string;
+  source: NoteSource;
+  status: 'PENDING' | 'EXPANDED' | 'ERROR';
+  createdAt: Date;
+  // Filled after AI expansion:
+  title?: string;
+  description?: string;
+  type?: NoteType;
+  category?: NoteCategory;
+  dueDate?: Date | null;
+  reminderAt?: Date | null;
+  nudgeDates?: Date[];
+}
+
+// ---------------------------------------------------------------------------
 // Integration types
 // ---------------------------------------------------------------------------
 
