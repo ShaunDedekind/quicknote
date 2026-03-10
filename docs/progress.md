@@ -177,6 +177,16 @@ Originally used `z.string().datetime({ offset: true })` which rejected Claude's 
 ### Correction flow
 A "correct" button on each note card (small edit icon, unobtrusive) that opens a voice or text input accepting natural-language feedback. Claude re-processes the original note with the correction as added context and returns an updated expansion. The card updates in place.
 
+The flow you're describing:
+
+Note comes back categorised as PERSONAL
+You tap "Correct"
+You say or type "Grace is a co-worker"
+Claude re-processes the note with that context
+Card updates to WORK, maybe adds Grace to people involved
+QuickNote quietly logs: Grace = colleague = WORK category
+Next time you mention Grace → automatically WORK, no correction needed
+
 Example interactions:
 - "Grace is a co-worker" → category flips PERSONAL → WORK, description updated
 - "This is actually next Friday, not this Friday" → dueDate shifts forward one week
@@ -188,3 +198,10 @@ Example interactions:
 
 **Longer-term — prompt learning:**
 Corrections accumulate per-user as labelled examples (`note content + correction → correct output`). A future prompt improvement pass injects the user's top N correction patterns as few-shot examples in the system prompt, teaching Claude the user's personal context (who their co-workers are, which category their recurring tasks belong to, preferred reminder timing, etc.). This turns corrections into a lightweight personalisation layer without fine-tuning.
+
+That last step is the magic. Over time QuickNote builds a little personal dictionary:
+
+Grace → colleague → WORK
+Rob → friend → PERSONAL 
+BNZ → finance → always set a due date
+bins → home → Tuesday evenings
