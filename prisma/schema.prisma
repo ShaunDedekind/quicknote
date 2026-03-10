@@ -1,5 +1,9 @@
 // Prisma schema for QuickNote
 // Local dev: SQLite. Production: swap provider to "postgresql" and update DATABASE_URL.
+//
+// NOTE: SQLite does not support Prisma enums. Enum-like fields use String with
+// TypeScript union types in lib/types.ts enforcing valid values at the app layer.
+// When switching to PostgreSQL, replace String fields with proper enum types.
 
 generator client {
   provider = "prisma-client-js"
@@ -8,37 +12,6 @@ generator client {
 datasource db {
   provider = "sqlite"
   url      = env("DATABASE_URL")
-}
-
-// ---------------------------------------------------------------------------
-// Enums
-// ---------------------------------------------------------------------------
-
-enum NoteSource {
-  TEXT
-  AUDIO
-}
-
-enum NoteType {
-  TASK
-  REMINDER
-  EVENT
-  INFO
-}
-
-enum NoteCategory {
-  WORK
-  PERSONAL
-  HEALTH
-  FINANCE
-  OTHER
-}
-
-enum NoteStatus {
-  PENDING    // raw note saved, expansion not yet run
-  EXPANDED   // AI expansion complete
-  DISMISSED  // user dismissed/archived
-  DONE       // task/reminder marked complete
 }
 
 // ---------------------------------------------------------------------------
@@ -97,19 +70,19 @@ model VerificationToken {
 // ---------------------------------------------------------------------------
 
 model Note {
-  id          String      @id @default(cuid())
+  id          String  @id @default(cuid())
   userId      String
-  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   // Raw input
   rawContent  String
-  source      NoteSource
+  source      String  // NoteSource: 'TEXT' | 'AUDIO'
 
-  // AI-expanded fields — null until status = EXPANDED
+  // AI-expanded fields — null until status = 'EXPANDED'
   title       String?
   description String?
-  type        NoteType?
-  category    NoteCategory?
+  type        String? // NoteType: 'TASK' | 'REMINDER' | 'EVENT' | 'INFO'
+  category    String? // NoteCategory: 'WORK' | 'PERSONAL' | 'HEALTH' | 'FINANCE' | 'OTHER'
   dueDate     DateTime?
   reminderAt  DateTime?
 
@@ -119,10 +92,10 @@ model Note {
   // Integrations
   calendarEventId String?
 
-  // Lifecycle
-  status      NoteStatus @default(PENDING)
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  // Lifecycle — NoteStatus: 'PENDING' | 'EXPANDED' | 'DISMISSED' | 'DONE'
+  status      String   @default("PENDING")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model NudgeSchedule {
