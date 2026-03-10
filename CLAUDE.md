@@ -72,6 +72,9 @@ Prompts live in `/lib/ai/`. Keep prompt logic out of API routes.
 - Don't create barrel `index.ts` files that re-export everything
 - Don't use `useEffect` to fetch data — use React Server Components or SWR
 
+## Session Continuity
+At the start of every new session, read docs/progress.md before doing anything else. At the end of a session or when asked, update docs/progress.md with what was completed, any decisions made, and what the next steps are.
+
 ## Reference Docs
 Use `@docs/` prefix to load these on demand — not every session:
 - `@docs/architecture.md` — system design decisions
