@@ -1,2 +1,22 @@
-# quicknote
-A small webapp that takes small audio notes or small naturally written text as input and extrapolates them into full reminders with all the delightful bells and whistles, such as reminders, nudges, auto categorization, auto date selection, and integrations into gmail etc etc
+# QuickNote 🎙️
+
+A small webapp that converts quick audio clips or short typed notes into 
+fully-formed reminders — complete with smart categorisation, auto date 
+extraction, nudges, and Google Calendar integration.
+
+## What it does
+- 🎤 Accept voice notes or typed text as input
+- 🧠 AI-powered expansion into full reminders
+- 📅 Auto date & time detection
+- 🏷️ Smart categorisation (work, personal, health, etc.)
+- 🔔 Reminder nudges & scheduling
+- 📆 Google Calendar integration
+
+## Stack
+- Next.js 14 (App Router) + TypeScript
+- Tailwind CSS
+- Claude API (note expansion)
+- Google Calendar API
+
+## Status
+🚧 In development
