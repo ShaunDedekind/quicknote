@@ -71,8 +71,8 @@ model VerificationToken {
 
 model Note {
   id          String  @id @default(cuid())
-  userId      String
-  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String?
+  user        User?   @relation(fields: [userId], references: [id])
 
   // Raw input
   rawContent  String

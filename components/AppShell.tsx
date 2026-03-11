@@ -1,32 +1,45 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import RecordTab from './RecordTab';
 import ListTab from './ListTab';
 import BottomTabBar, { type Tab } from './BottomTabBar';
-import type { LocalNote, NoteSource, NoteType, NoteCategory } from '@/lib/types';
+import type { LocalNote, NoteSource } from '@/lib/types';
 
 export default function AppShell() {
   const [activeTab, setActiveTab] = useState<Tab>('record');
   const [notes, setNotes] = useState<LocalNote[]>([]);
 
-  // Called by RecordTab immediately on submit — fires API in background.
+  // Load persisted notes on mount
+  useEffect(() => {
+    fetch('/api/notes')
+      .then(res => res.json())
+      .then(({ notes: fetched }: { notes: LocalNote[] }) => {
+        // Parse date strings back to Date objects
+        setNotes(
+          fetched.map(n => ({
+            ...n,
+            createdAt: new Date(n.createdAt),
+            dueDate: n.dueDate ? new Date(n.dueDate) : null,
+            reminderAt: n.reminderAt ? new Date(n.reminderAt) : null,
+            nudgeDates: n.nudgeDates?.map(d => new Date(d)),
+          })),
+        );
+      })
+      .catch(err => console.error('[AppShell] Failed to load notes:', err));
+  }, []);
+
+  // Called by RecordTab immediately on submit — shows optimistic card, then swaps in DB note.
   const addNote = useCallback(async (content: string, source: NoteSource) => {
-    const id = `local-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const tempId = `local-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
     setNotes(prev => [
-      {
-        id,
-        rawContent: content,
-        source,
-        status: 'PENDING',
-        createdAt: new Date(),
-      },
+      { id: tempId, rawContent: content, source, status: 'PENDING', createdAt: new Date() },
       ...prev,
     ]);
 
     try {
-      const res = await fetch('/api/notes/expand', {
+      const res = await fetch('/api/notes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ rawContent: content, source }),
@@ -38,39 +51,26 @@ export default function AppShell() {
         throw new Error(`HTTP ${res.status}`);
       }
 
-      const { expanded } = (await res.json()) as {
-        expanded: {
-          title: string;
-          description: string;
-          type: string;
-          category: string;
-          dueDate: string | null;
-          reminderAt: string | null;
-          nudgeDates: string[];
-        };
-      };
+      const { note } = (await res.json()) as { note: LocalNote };
 
+      // Replace optimistic card with real persisted note
       setNotes(prev =>
         prev.map(n =>
-          n.id === id
+          n.id === tempId
             ? {
-                ...n,
-                status: 'EXPANDED' as const,
-                title: expanded.title,
-                description: expanded.description,
-                type: expanded.type as NoteType,
-                category: expanded.category as NoteCategory,
-                dueDate: expanded.dueDate ? new Date(expanded.dueDate) : null,
-                reminderAt: expanded.reminderAt ? new Date(expanded.reminderAt) : null,
-                nudgeDates: expanded.nudgeDates.map(d => new Date(d)),
+                ...note,
+                createdAt: new Date(note.createdAt),
+                dueDate: note.dueDate ? new Date(note.dueDate) : null,
+                reminderAt: note.reminderAt ? new Date(note.reminderAt) : null,
+                nudgeDates: note.nudgeDates?.map(d => new Date(d)),
               }
             : n,
         ),
       );
     } catch (err) {
-      console.error('[addNote] Failed to expand note:', err);
+      console.error('[addNote] Failed:', err);
       setNotes(prev =>
-        prev.map(n => (n.id === id ? { ...n, status: 'ERROR' as const } : n)),
+        prev.map(n => (n.id === tempId ? { ...n, status: 'ERROR' as const } : n)),
       );
     }
   }, []);
@@ -80,16 +80,14 @@ export default function AppShell() {
   }, []);
 
   const markNoteDone = useCallback((id: string) => {
-    // Brief pause to let swipe animation complete, then remove
     setTimeout(() => {
       setNotes(prev => prev.filter(n => n.id !== id));
     }, 300);
   }, []);
 
   return (
-    <div className="flex justify-center bg-stone-100 h-dvh">
-      <div className="relative flex flex-col bg-white w-full max-w-[390px] h-dvh shadow-[0_0_60px_rgba(0,0,0,0.07)]">
-        {/* Tab content area — both tabs use absolute positioning to fill this */}
+    <div className="flex justify-center bg-[#0a0a0a] h-dvh">
+      <div className="relative flex flex-col bg-[#0a0a0a] w-full max-w-[390px] h-dvh border-x border-white/[0.04]">
         <div className="relative flex-1 min-h-0 overflow-hidden">
           {activeTab === 'record' ? (
             <RecordTab onNoteSubmit={addNote} />
