@@ -1,7 +1,7 @@
 # QuickNote — Session Progress
 
 > Keep this file up to date. Read it at the start of every session before touching code.
-> Last updated: session 4 (Google Calendar integration — auth, AI calendar assessment, Add to Calendar UI)
+> Last updated: session 5 (Settings tab — Google Account connect/disconnect, Calendar toggle, placeholder sections; NoteDetailPanel signpost to Settings)
 
 ---
 
@@ -191,6 +191,28 @@ Claude generates nudge dates but nothing sends notifications. Future work — ne
 
 ### Zod date validation
 Originally used `z.string().datetime({ offset: true })` which rejected Claude's dates (no `Z` suffix). Changed to `z.string().refine(s => !isNaN(Date.parse(s)))` — accepts any JS-parseable datetime string. Prompt updated to instruct Claude to always output `Z`-suffixed UTC strings.
+
+---
+
+### Settings tab — `components/SettingsTab.tsx`
+Added in session 5. Three tab navigation: Record · Notes · Settings.
+
+- **Google Account section** — `useSession` detects auth state: unauthenticated shows "Connect Google" (calls `signIn('google')`); authenticated shows profile photo + name + email + "Disconnect" (calls `signOut()`)
+- **Integrations section** — Google Calendar toggle persisted to `localStorage` key `qn_calendar_enabled`
+- **Preferences section** — "Notification preferences" + "Default reminder time" (placeholder rows, no logic)
+- **History section** — "Correction history" (placeholder row, no logic)
+- Highlight mechansim: `highlightGoogleAccount` prop triggers a cinnabar ring + glow + smooth scroll when the user arrives via the NoteDetailPanel signpost
+
+### NoteDetailPanel — Settings signpost
+Unauthenticated "Add to Calendar" button no longer calls `signIn('google')` inline. It now calls `onOpenSettings()` (passed from AppShell), which:
+1. Closes the NoteDetailPanel
+2. Switches `activeTab` to `'settings'`
+3. Sets `highlightGoogleAccount` true for 2.5s, then clears
+
+Button text changed to "Connect Google in Settings to add to Calendar".
+
+### BottomTabBar
+`Tab` type extended to `'record' | 'list' | 'settings'`. Gear/cog icon added for Settings. Layout narrowed to fit three tabs (px-4 per tab).
 
 ---
 

@@ -2,7 +2,8 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { NoteSource, ExpandedNoteFields } from '@/lib/types';
 import { EXPANSION_SYSTEM_PROMPT, buildExpansionUserMessage } from '@/lib/ai/prompts';
-import { parseExpansionResponse, ExpansionParseError } from '@/lib/ai/parse';
+import { parseExpansionResponse } from '@/lib/ai/parse';
+export { ExpansionParseError } from '@/lib/ai/parse';
 
 // ---------------------------------------------------------------------------
 // Config

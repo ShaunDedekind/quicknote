@@ -1,13 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { useSession, signIn } from 'next-auth/react';
+import { useSession } from 'next-auth/react';
 import type { LocalNote, NoteCategory } from '@/lib/types';
 
 interface Props {
   note: LocalNote | null;
   onClose: () => void;
   onCalendarEventCreated: (noteId: string, calendarEventId: string) => void;
+  onOpenSettings: () => void;
 }
 
 const CATEGORY_COLOR: Record<NoteCategory, string> = {
@@ -37,9 +38,11 @@ function formatFullDate(date: Date): string {
 function CalendarButton({
   note,
   onCreated,
+  onSignInRequest,
 }: {
   note: LocalNote;
   onCreated: (calendarEventId: string) => void;
+  onSignInRequest: () => void;
 }) {
   const { data: session, status } = useSession();
   const [loading, setLoading] = useState(false);
@@ -57,11 +60,11 @@ function CalendarButton({
     );
   }
 
-  // Not signed in
+  // Not signed in — direct to Settings rather than triggering inline OAuth
   if (status === 'unauthenticated') {
     return (
       <button
-        onClick={() => signIn('google')}
+        onClick={onSignInRequest}
         className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#2e2b4a] bg-[#252340] px-4 py-3 text-sm font-medium text-[#877fa0] transition-colors hover:text-[#e8dfc8] active:scale-[0.98]"
       >
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
@@ -70,7 +73,7 @@ function CalendarButton({
           <line x1="8" y1="2" x2="8" y2="6" />
           <line x1="3" y1="10" x2="21" y2="10" />
         </svg>
-        Sign in with Google to add to Calendar
+        Connect Google in Settings to add to Calendar
       </button>
     );
   }
@@ -146,7 +149,7 @@ function CalendarButton({
 // Main panel
 // ---------------------------------------------------------------------------
 
-export default function NoteDetailPanel({ note, onClose, onCalendarEventCreated }: Props) {
+export default function NoteDetailPanel({ note, onClose, onCalendarEventCreated, onOpenSettings }: Props) {
   const isOpen = note !== null;
 
   // Local mirror of calendarEventId so the button updates immediately without
@@ -162,6 +165,12 @@ export default function NoteDetailPanel({ note, onClose, onCalendarEventCreated 
   const handleClose = () => {
     setLocalEventId(null);
     onClose();
+  };
+
+  // Close panel then navigate to Settings with Google Account highlight
+  const handleGoToSettings = () => {
+    handleClose();
+    onOpenSettings();
   };
 
   // Merge parent note with local overrides
@@ -269,9 +278,9 @@ export default function NoteDetailPanel({ note, onClose, onCalendarEventCreated 
             </div>
           )}
 
-          {/* Add to Calendar — only shown for calendar-worthy notes with a due date */}
-          {displayNote.calendarWorthy && displayNote.dueDate && (
-            <CalendarButton note={displayNote} onCreated={handleCreated} />
+          {/* Add to Calendar — shown for calendar-worthy or EVENT-type notes with a due date */}
+          {(displayNote.calendarWorthy || displayNote.type === 'EVENT') && displayNote.dueDate && (
+            <CalendarButton note={displayNote} onCreated={handleCreated} onSignInRequest={handleGoToSettings} />
           )}
         </div>
       )}

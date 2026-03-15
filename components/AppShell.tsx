@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import RecordTab from './RecordTab';
 import ListTab from './ListTab';
+import SettingsTab from './SettingsTab';
 import BottomTabBar, { type Tab } from './BottomTabBar';
 import NoteDetailPanel from './NoteDetailPanel';
 import type { LocalNote, NoteSource } from '@/lib/types';
@@ -11,6 +12,8 @@ export default function AppShell() {
   const [activeTab, setActiveTab] = useState<Tab>('record');
   const [notes, setNotes] = useState<LocalNote[]>([]);
   const [selectedNote, setSelectedNote] = useState<LocalNote | null>(null);
+  const [highlightGoogleAccount, setHighlightGoogleAccount] = useState(false);
+  const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Load persisted notes on mount
   useEffect(() => {
@@ -28,6 +31,20 @@ export default function AppShell() {
         );
       })
       .catch(err => console.error('[AppShell] Failed to load notes:', err));
+  }, []);
+
+  // Navigate to Settings and briefly highlight the Google Account section
+  const handleOpenSettings = useCallback(() => {
+    setActiveTab('settings');
+    setHighlightGoogleAccount(true);
+    if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+    highlightTimerRef.current = setTimeout(() => setHighlightGoogleAccount(false), 2500);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (highlightTimerRef.current) clearTimeout(highlightTimerRef.current);
+    };
   }, []);
 
   const addNote = useCallback(async (content: string, source: NoteSource) => {
@@ -105,20 +122,23 @@ export default function AppShell() {
         <div className="relative flex-1 min-h-0 overflow-hidden">
           {activeTab === 'record' ? (
             <RecordTab onNoteSubmit={addNote} />
-          ) : (
+          ) : activeTab === 'list' ? (
             <ListTab
               notes={notes}
               onDelete={deleteNote}
               onMarkDone={markNoteDone}
               onSelect={setSelectedNote}
             />
+          ) : (
+            <SettingsTab highlightGoogleAccount={highlightGoogleAccount} />
           )}
 
-          {/* Slide-in detail panel — rendered over both tabs */}
+          {/* Slide-in detail panel — rendered over all tabs */}
           <NoteDetailPanel
             note={selectedNote}
             onClose={() => setSelectedNote(null)}
             onCalendarEventCreated={handleCalendarEventCreated}
+            onOpenSettings={handleOpenSettings}
           />
         </div>
 

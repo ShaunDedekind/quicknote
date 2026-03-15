@@ -45,9 +45,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'Note not found' }, { status: 404 });
   }
 
-  if (!note.calendarWorthy || !note.dueDate) {
+  if (!note.dueDate) {
     return NextResponse.json(
-      { error: 'Note is not calendar-worthy or has no date' },
+      { error: 'Note has no due date' },
       { status: 422 },
     );
   }

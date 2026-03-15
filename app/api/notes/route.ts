@@ -109,6 +109,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 
+  console.log('[notes POST] calendarWorthy from AI:', expanded.calendarWorthy, '| type:', expanded.type, '| dueDate:', expanded.dueDate);
+
   // Persist expanded fields + nudge schedule + calendar fields
   const updatedNote = await prisma.note.update({
     where: { id: note.id },
@@ -132,6 +134,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     },
     include: { nudgeSchedule: true },
   });
+
+  console.log('[notes POST] DB saved calendarWorthy:', updatedNote.calendarWorthy);
 
   return NextResponse.json({ note: toLocalNote(updatedNote) }, { status: 201 });
 }
