@@ -6,7 +6,8 @@
       "Bash(npm install:*)",
       "Bash(npx prisma:*)",
       "Bash(npm run:*)",
-      "Bash(ls c:/dev/quicknote/.env*)"
+      "Bash(ls c:/dev/quicknote/.env*)",
+      "Bash(npx tsx:*)"
     ]
   }
 }
