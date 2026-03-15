@@ -61,6 +61,7 @@ export async function GET(): Promise<NextResponse> {
 const postSchema = z.object({
   rawContent: z.string().min(1, 'Note content is required').max(5000),
   source: z.enum(['TEXT', 'AUDIO']),
+  timezone: z.string().optional(), // IANA timezone, e.g. "Pacific/Auckland"
 });
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -79,7 +80,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const { rawContent, source } = parsed.data;
+  const { rawContent, source, timezone } = parsed.data;
 
   // Save raw note immediately as PENDING
   const note = await prisma.note.create({
@@ -90,7 +91,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   // Expand via AI
   let expanded;
   try {
-    expanded = await expandNote(rawContent, source);
+    expanded = await expandNote(rawContent, source, new Date(), timezone);
   } catch (error) {
     await prisma.note.update({ where: { id: note.id }, data: { status: 'ERROR' } });
     if (error instanceof NoteExpansionError || error instanceof ExpansionParseError) {

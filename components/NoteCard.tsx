@@ -7,31 +7,34 @@ interface Props {
   note: LocalNote;
   onDelete: (id: string) => void;
   onMarkDone: (id: string) => void;
+  onTap: (note: LocalNote) => void;
 }
 
-// Left-edge accent + inset glow per category (dark theme)
-const CATEGORY_ACCENT: Record<NoteCategory, { color: string; glow: string }> = {
-  WORK:     { color: '#3b82f6', glow: 'rgba(59,130,246,0.10)' },
-  PERSONAL: { color: '#8b5cf6', glow: 'rgba(139,92,246,0.10)' },
-  HEALTH:   { color: '#10b981', glow: 'rgba(16,185,129,0.10)' },
-  FINANCE:  { color: '#f59e0b', glow: 'rgba(245,158,11,0.10)' },
-  OTHER:    { color: '#525252', glow: 'rgba(82,82,82,0.08)'   },
+// Left-edge accent colour per category
+const CATEGORY_COLOR: Record<NoteCategory, string> = {
+  WORK:     '#4b7fd4',
+  PERSONAL: '#9265cc',
+  HEALTH:   '#38b089',
+  FINANCE:  '#c89b3c',
+  OTHER:    '#5c5572',
 };
 
-const CATEGORY_PILL: Record<NoteCategory, string> = {
-  WORK:     'bg-blue-500/10 text-blue-400',
-  PERSONAL: 'bg-violet-500/10 text-violet-400',
-  HEALTH:   'bg-emerald-500/10 text-emerald-400',
-  FINANCE:  'bg-amber-500/10 text-amber-400',
-  OTHER:    'bg-neutral-800 text-neutral-500',
+// Text colour for the category pill label
+const CATEGORY_TEXT: Record<NoteCategory, string> = {
+  WORK:     'text-[#4b7fd4]',
+  PERSONAL: 'text-[#9265cc]',
+  HEALTH:   'text-[#38b089]',
+  FINANCE:  'text-[#c89b3c]',
+  OTHER:    'text-[#5c5572]',
 };
 
 type Urgency = 'high' | 'medium' | 'low';
 
-const URGENCY_DOT: Record<Urgency, string> = {
-  high:   'bg-red-500',
-  medium: 'bg-amber-500',
-  low:    'bg-emerald-500',
+// Urgency dot: cinnabar red for high, muted amber/green for others
+const URGENCY_DOT: Record<Urgency, { bg: string; glow: string }> = {
+  high:   { bg: 'bg-[#c94e3b]', glow: '0 0 6px 1px rgba(201,78,59,0.65)'  },
+  medium: { bg: 'bg-[#c89b3c]', glow: '0 0 6px 1px rgba(200,155,60,0.55)' },
+  low:    { bg: 'bg-[#38b089]', glow: '0 0 6px 1px rgba(56,176,137,0.5)'  },
 };
 
 function getUrgency(dueDate?: Date | null): Urgency | null {
@@ -57,19 +60,22 @@ function formatDate(date: Date): string {
   );
 }
 
-export default function NoteCard({ note, onDelete, onMarkDone }: Props) {
+export default function NoteCard({ note, onDelete, onMarkDone, onTap }: Props) {
   const [swipeX, setSwipeX] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
   const [exitDir, setExitDir] = useState<'left' | 'right' | null>(null);
   const touchStartX = useRef(0);
+  const wasSwipingRef = useRef(false);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
     setIsSwiping(true);
+    wasSwipingRef.current = false;
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
     const delta = e.touches[0].clientX - touchStartX.current;
+    if (Math.abs(delta) > 5) wasSwipingRef.current = true;
     setSwipeX(Math.max(-130, Math.min(130, delta)));
   };
 
@@ -86,9 +92,13 @@ export default function NoteCard({ note, onDelete, onMarkDone }: Props) {
     }
   };
 
+  const handleClick = () => {
+    if (!wasSwipingRef.current && note.status === 'EXPANDED') onTap(note);
+  };
+
   const urgency = getUrgency(note.dueDate);
-  const category = note.category;
-  const accent = category ? CATEGORY_ACCENT[category] : null;
+  const category = note.category ?? 'OTHER';
+  const accentColor = CATEGORY_COLOR[category];
 
   const cardTransform =
     exitDir === 'left'
@@ -102,24 +112,20 @@ export default function NoteCard({ note, onDelete, onMarkDone }: Props) {
       ? 'transform 0.28s cubic-bezier(0.4, 0, 0.2, 1)'
       : 'none';
 
-  const cardBoxShadow = accent
-    ? `inset 3px 0 0 0 ${accent.color}, inset 40px 0 40px -24px ${accent.glow}`
-    : 'inset 3px 0 0 0 #262626';
-
   return (
     <div
-      className="relative mb-2 overflow-hidden rounded-2xl"
+      className="relative mb-2 overflow-hidden rounded-xl"
       style={{ animation: 'card-enter 0.38s cubic-bezier(0.34, 1.56, 0.64, 1) both' }}
     >
       {/* Swipe action backgrounds */}
-      <div className="absolute inset-0 flex items-stretch rounded-2xl">
-        <div className="flex flex-1 items-center pl-5 rounded-l-2xl bg-emerald-600">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <div className="absolute inset-0 flex items-stretch rounded-xl">
+        <div className="flex flex-1 items-center pl-4 rounded-l-xl bg-[#38b089]">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="20 6 9 17 4 12" />
           </svg>
         </div>
-        <div className="flex flex-1 items-center justify-end pr-5 rounded-r-2xl bg-red-600">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <div className="flex flex-1 items-center justify-end pr-4 rounded-r-xl bg-[#c94e3b]">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="3 6 5 6 21 6" />
             <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
             <path d="M10 11v6M14 11v6" />
@@ -129,67 +135,58 @@ export default function NoteCard({ note, onDelete, onMarkDone }: Props) {
 
       {/* Card */}
       <div
-        style={{ transform: cardTransform, transition: cardTransition, boxShadow: cardBoxShadow }}
-        className="relative bg-[#111] rounded-2xl px-4 py-3.5 select-none"
+        style={{
+          transform: cardTransform,
+          transition: cardTransition,
+          borderLeft: note.status === 'EXPANDED' ? `2px solid ${accentColor}` : '2px solid transparent',
+        }}
+        className="relative bg-[#252340] rounded-xl px-3.5 py-3 select-none cursor-pointer"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
+        onClick={handleClick}
       >
         {note.status === 'PENDING' ? (
-          <div className="flex flex-col gap-2.5">
-            <div className="h-2.5 w-14 rounded-full bg-neutral-800 animate-pulse" />
-            <div className="h-4 w-3/4 rounded-lg bg-neutral-800 animate-pulse" />
-            <div className="h-2.5 w-1/2 rounded-lg bg-neutral-800 animate-pulse" />
+          <div className="flex flex-col gap-2">
+            <div className="h-2.5 w-3/4 rounded-full bg-[#2e2b4a] animate-pulse" />
+            <div className="h-2 w-1/2 rounded-full bg-[#2e2b4a] animate-pulse" />
           </div>
         ) : note.status === 'ERROR' ? (
-          <div className="flex items-start gap-3">
-            <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-red-500/10">
-              <span className="text-[10px] font-bold text-red-500">!</span>
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#c94e3b]/10">
+              <span className="text-[9px] font-bold text-[#c94e3b]">!</span>
             </div>
-            <div>
-              <p className="text-sm text-neutral-500 line-clamp-2">{note.rawContent}</p>
-              <p className="mt-0.5 text-xs text-red-500/70">Couldn&apos;t process this note</p>
-            </div>
+            <p className="text-sm text-[#877fa0] line-clamp-1">{note.rawContent}</p>
           </div>
         ) : (
-          <div className="flex flex-col gap-1.5">
-            {/* Top row: category pill + urgency dot */}
+          <div className="flex flex-col gap-1">
+            {/* Row 1: title + urgency dot */}
             <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                {category && (
-                  <span
-                    className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${CATEGORY_PILL[category]}`}
-                  >
-                    {category.charAt(0) + category.slice(1).toLowerCase()}
-                  </span>
-                )}
-                {note.type && (
-                  <span className="text-[10px] font-medium uppercase tracking-wide text-neutral-700">
-                    {note.type.toLowerCase()}
-                  </span>
-                )}
-              </div>
+              <p className="flex-1 text-[14px] font-semibold leading-snug text-[#e8dfc8] truncate">
+                {note.title ?? note.rawContent}
+              </p>
               {urgency && (
-                <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${URGENCY_DOT[urgency]}`} />
+                <span
+                  className={`h-1.5 w-1.5 shrink-0 rounded-full ${URGENCY_DOT[urgency].bg}`}
+                  style={{ boxShadow: URGENCY_DOT[urgency].glow }}
+                />
               )}
             </div>
 
-            {/* Title */}
-            <p className="text-[15px] font-semibold leading-snug text-neutral-100 line-clamp-2">
-              {note.title ?? note.rawContent}
-            </p>
-
-            {/* Due date */}
-            {note.dueDate && (
-              <p className="text-xs text-neutral-600">{formatDate(note.dueDate)}</p>
-            )}
-
-            {/* Description */}
-            {note.description && note.description !== note.title && (
-              <p className="text-xs leading-relaxed text-neutral-600 line-clamp-2">
-                {note.description}
-              </p>
-            )}
+            {/* Row 2: category + date */}
+            <div className="flex items-center gap-1.5">
+              {note.category && (
+                <span className={`text-[10px] font-semibold uppercase tracking-wider ${CATEGORY_TEXT[note.category]}`}>
+                  {note.category.charAt(0) + note.category.slice(1).toLowerCase()}
+                </span>
+              )}
+              {note.category && note.dueDate && (
+                <span className="text-[#5c5572] text-[10px]">·</span>
+              )}
+              {note.dueDate && (
+                <span className="text-[11px] text-[#877fa0]">{formatDate(note.dueDate)}</span>
+              )}
+            </div>
           </div>
         )}
       </div>

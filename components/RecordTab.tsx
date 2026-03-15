@@ -210,7 +210,10 @@ export default function RecordTab({ onNoteSubmit }: Props) {
   return (
     <div className="absolute inset-0 flex flex-col items-center px-6 pt-10 pb-4 overflow-hidden">
       {/* Wordmark */}
-      <p className="text-[11px] font-bold tracking-[0.28em] text-neutral-600 uppercase select-none">
+      <p
+        className="text-[11px] font-semibold tracking-[0.28em] text-[#5c5572] uppercase select-none"
+        style={{ fontFamily: 'var(--font-fraunces)' }}
+      >
         QuickNote
       </p>
 
@@ -223,14 +226,14 @@ export default function RecordTab({ onNoteSubmit }: Props) {
             className="flex flex-col items-center gap-4"
             style={{ animation: 'fade-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both' }}
           >
-            <div className="flex h-[104px] w-[104px] items-center justify-center rounded-full bg-emerald-500/10">
-              <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <div className="flex h-[104px] w-[104px] items-center justify-center rounded-full bg-[#38b089]/10">
+              <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#38b089" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="20 6 9 17 4 12" />
               </svg>
             </div>
             <div className="flex flex-col items-center gap-1">
-              <p className="text-[15px] font-semibold text-neutral-100">Captured</p>
-              <p className="text-xs text-neutral-600">AI is expanding your note</p>
+              <p className="text-[15px] font-semibold text-[#e8dfc8]">Captured</p>
+              <p className="text-xs text-[#5c5572]">AI is expanding your note</p>
             </div>
           </div>
         )}
@@ -241,28 +244,28 @@ export default function RecordTab({ onNoteSubmit }: Props) {
             {/* Mic / unavailable / denied */}
             {micStatus === 'unavailable' ? (
               <div className="flex flex-col items-center gap-3 text-center">
-                <div className="flex h-[104px] w-[104px] items-center justify-center rounded-full bg-[#1a1a1a]">
-                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#404040" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <div className="flex h-[104px] w-[104px] items-center justify-center rounded-full bg-[#252340]">
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#5c5572" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
                     <rect x="9" y="2" width="6" height="11" rx="3" />
                     <path d="M5 10a7 7 0 0 0 14 0M12 19v3M8 22h8" />
                     <line x1="3" y1="3" x2="21" y2="21" />
                   </svg>
                 </div>
-                <p className="text-sm font-medium text-neutral-400">Speech recognition unavailable</p>
-                <p className="text-xs text-neutral-600 max-w-[200px] leading-relaxed">
+                <p className="text-sm font-medium text-[#877fa0]">Speech recognition unavailable</p>
+                <p className="text-xs text-[#5c5572] max-w-[200px] leading-relaxed">
                   Try Chrome or Edge. Use text mode below.
                 </p>
               </div>
             ) : micStatus === 'denied' ? (
               <div className="flex flex-col items-center gap-3 text-center">
-                <div className="flex h-[104px] w-[104px] items-center justify-center rounded-full bg-[#1a1a1a]">
-                  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#404040" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <div className="flex h-[104px] w-[104px] items-center justify-center rounded-full bg-[#252340]">
+                  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#5c5572" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
                     <rect x="3" y="11" width="18" height="11" rx="2" />
                     <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                   </svg>
                 </div>
-                <p className="text-sm font-medium text-neutral-300">Microphone blocked</p>
-                <p className="text-xs text-neutral-600 max-w-[220px] leading-relaxed">
+                <p className="text-sm font-medium text-[#e8dfc8]">Microphone blocked</p>
+                <p className="text-xs text-[#5c5572] max-w-[220px] leading-relaxed">
                   Allow microphone access in your browser&apos;s site settings, then refresh.
                 </p>
               </div>
@@ -270,14 +273,13 @@ export default function RecordTab({ onNoteSubmit }: Props) {
               <div className="flex flex-col items-center gap-6">
                 {/* Mic button + ambient glow */}
                 <div className="relative flex items-center justify-center">
-                  {/* Ambient glow pool — sits below the button */}
                   <div
                     className={`absolute w-[200px] h-[60px] rounded-full blur-[64px] pointer-events-none transition-colors duration-700 ${
-                      isRecording ? 'bg-amber-500' : 'bg-white'
+                      isRecording ? 'bg-amber-500' : 'bg-[#9265cc]'
                     }`}
                     style={{
                       animation: isRecording ? 'glow-pulse 2s ease-in-out infinite' : 'none',
-                      opacity: isRecording ? undefined : 0.04,
+                      opacity: isRecording ? undefined : 0.07,
                     }}
                   />
 
@@ -288,8 +290,8 @@ export default function RecordTab({ onNoteSubmit }: Props) {
                       isRecording
                         ? 'bg-amber-500 text-white'
                         : micStatus === 'requesting'
-                          ? 'bg-[#1a1a1a] text-neutral-700 cursor-wait'
-                          : 'bg-[#1a1a1a] text-neutral-400 hover:text-neutral-200'
+                          ? 'bg-[#252340] text-[#5c5572] cursor-wait'
+                          : 'bg-[#252340] text-[#877fa0] hover:text-[#e8dfc8]'
                     }`}
                     aria-label={isRecording ? 'Stop recording' : 'Start recording'}
                   >
@@ -306,17 +308,17 @@ export default function RecordTab({ onNoteSubmit }: Props) {
                 {/* Status / transcript */}
                 <div className="flex min-h-[48px] flex-col items-center justify-center gap-1.5">
                   {micStatus === 'requesting' && (
-                    <p className="text-sm text-neutral-600">Waiting for permission…</p>
+                    <p className="text-sm text-[#5c5572]">Waiting for permission…</p>
                   )}
                   {isRecording && !transcript && (
-                    <p className="text-sm text-neutral-600 animate-pulse">Listening…</p>
+                    <p className="text-sm text-[#5c5572] animate-pulse">Listening…</p>
                   )}
                   {transcript ? (
-                    <p className="max-w-[260px] text-center text-sm leading-relaxed text-neutral-300">
+                    <p className="max-w-[260px] text-center text-sm leading-relaxed text-[#e8dfc8]">
                       {transcript}
                     </p>
                   ) : !isRecording && micStatus !== 'requesting' ? (
-                    <p className="text-sm text-neutral-700">Tap to capture</p>
+                    <p className="text-sm text-[#3d3a5a]">Tap to capture</p>
                   ) : null}
                 </div>
               </div>
@@ -324,9 +326,9 @@ export default function RecordTab({ onNoteSubmit }: Props) {
 
             {/* Divider */}
             <div className="flex w-full max-w-[300px] items-center gap-3">
-              <div className="h-px flex-1 bg-neutral-800" />
-              <span className="text-[11px] tracking-wide text-neutral-700">or type</span>
-              <div className="h-px flex-1 bg-neutral-800" />
+              <div className="h-px flex-1 bg-[#252340]" />
+              <span className="text-[11px] tracking-wide text-[#3d3a5a]">or type</span>
+              <div className="h-px flex-1 bg-[#252340]" />
             </div>
 
             {/* Text input */}
@@ -343,12 +345,12 @@ export default function RecordTab({ onNoteSubmit }: Props) {
                   placeholder="Remind me to…"
                   rows={2}
                   disabled={isRecording}
-                  className="flex-1 resize-none rounded-2xl border border-neutral-800 bg-[#1a1a1a] px-4 py-3 text-sm leading-relaxed text-neutral-200 placeholder:text-neutral-700 outline-none transition-colors focus:border-neutral-700 disabled:opacity-30"
+                  className="flex-1 resize-none rounded-2xl border border-[#2e2b4a] bg-[#252340] px-4 py-3 text-sm leading-relaxed text-[#e8dfc8] placeholder:text-[#3d3a5a] outline-none transition-colors focus:border-[#5c5572] disabled:opacity-30"
                 />
                 {textInput.trim() && !isRecording && (
                   <button
                     onClick={() => handleSubmit(textInput, 'TEXT')}
-                    className="mb-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#1a1a1a] text-neutral-500 transition-all hover:text-neutral-200 active:scale-[0.92] border border-neutral-800"
+                    className="mb-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#252340] text-[#877fa0] transition-all hover:text-[#e8dfc8] active:scale-[0.92] border border-[#2e2b4a]"
                     aria-label="Submit note"
                   >
                     <SendIcon />
@@ -356,7 +358,7 @@ export default function RecordTab({ onNoteSubmit }: Props) {
                 )}
               </div>
               {textInput.trim() && !isRecording && (
-                <p className="mt-1.5 text-right text-[10px] text-neutral-700">⌘ Enter</p>
+                <p className="mt-1.5 text-right text-[10px] text-[#3d3a5a]">⌘ Enter</p>
               )}
             </div>
           </>
@@ -366,7 +368,7 @@ export default function RecordTab({ onNoteSubmit }: Props) {
       {/* Error */}
       {errorMsg && !showDone && (
         <div className="mb-2">
-          <p className="max-w-[260px] text-center text-xs text-red-500">{errorMsg}</p>
+          <p className="max-w-[260px] text-center text-xs text-[#c94e3b]">{errorMsg}</p>
         </div>
       )}
     </div>

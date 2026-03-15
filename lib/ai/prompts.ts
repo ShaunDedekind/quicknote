@@ -39,38 +39,39 @@ no prose, no explanation.
 
 ## Date extraction rules
 
-- The current date and time is provided in the user message — use it as the anchor.
-- Resolve all relative expressions ("tomorrow", "next week", "in 3 days") against that anchor.
+- The current date/time (UTC) and the user's local timezone are provided in the user message.
+- Use the user's LOCAL date and time as the anchor for interpreting relative expressions.
+- Resolve all relative expressions ("tomorrow", "next week", "in 3 days") against the local anchor.
 - If no date or time is mentioned, set dueDate and reminderAt to null.
-- All datetimes must be in the future relative to the current date provided.
-- All datetimes must include a UTC timezone suffix — always end with "Z" (e.g. "2026-03-15T09:00:00Z").
+- All datetimes must be in the future relative to the current local time provided.
+- All datetimes must be output in UTC — always end with "Z" (e.g. "2026-03-15T09:00:00Z").
 
-### Default times — when the user gives a day but no time, use these:
+### Default times — when the user gives a day but no time, use these (in the user's local timezone, then convert to UTC):
 
 | Expression             | dueDate time  | Notes                                      |
 |------------------------|---------------|--------------------------------------------|
-| "tonight"              | 19:00         | Same calendar day as now                   |
-| "this evening"         | 19:00         | Same calendar day as now                   |
-| "today"                | 17:00         | End of working day                         |
-| "tomorrow morning"     | 09:00         | Next calendar day                          |
-| "tomorrow"             | 09:00         | Next calendar day                          |
-| "tomorrow afternoon"   | 14:00         | Next calendar day                          |
-| "tomorrow evening"     | 19:00         | Next calendar day                          |
-| "this weekend"         | Saturday 10:00| Nearest upcoming Saturday                  |
-| "next week"            | Monday 09:00  | Start of next calendar week                |
-| "this week"            | Friday 17:00  | End of current working week                |
-| "end of month"         | Last weekday 17:00 | Last business day of current month    |
+| "tonight"              | 19:00         | Same calendar day as the user's local now  |
+| "this evening"         | 19:00         | Same calendar day as the user's local now  |
+| "today"                | 17:00         | End of working day, same local day         |
+| "tomorrow morning"     | 09:00         | Next local calendar day                    |
+| "tomorrow"             | 09:00         | Next local calendar day                    |
+| "tomorrow afternoon"   | 14:00         | Next local calendar day                    |
+| "tomorrow evening"     | 19:00         | Next local calendar day                    |
+| "this weekend"         | Saturday 10:00| Nearest upcoming Saturday in local time    |
+| "next week"            | Monday 09:00  | Start of next local calendar week          |
+| "this week"            | Friday 17:00  | End of current local working week          |
+| "end of month"         | Last weekday 17:00 | Last business day of current local month |
 
-If the user gives a specific time ("at 3pm", "at noon"), use that time exactly and ignore the defaults above.
+If the user gives a specific time ("at 3pm", "at noon"), use that time in the user's local timezone, then convert to UTC.
 
 ### reminderAt heuristics:
-- For tasks/reminders due same day: reminderAt = 1 hour before dueDate (minimum 09:00).
-- For tasks/reminders due tomorrow or later: reminderAt = 09:00 on the due date.
+- For tasks/reminders due same day: reminderAt = 1 hour before dueDate (minimum 09:00 local).
+- For tasks/reminders due tomorrow or later: reminderAt = 09:00 local on the due date.
 - For events: reminderAt = 1 hour before the event start.
 
 ### nudgeDates:
 - 0 nudges for INFO notes or notes without a dueDate.
-- 1 nudge (1 day before at 09:00) for near-term tasks/reminders (due within 7 days).
+- 1 nudge (1 day before at 09:00 local) for near-term tasks/reminders (due within 7 days).
 - 2–3 nudges (e.g. 1 week before, 1 day before, morning of) for events or long-horizon tasks.
 
 ## Audio note handling
@@ -93,21 +94,105 @@ export interface ExpansionPromptInput {
   rawContent: string;
   source: NoteSource;
   now: Date;
+  timezone?: string; // IANA timezone string, e.g. "Pacific/Auckland"
 }
 
 export function buildExpansionUserMessage({
   rawContent,
   source,
   now,
+  timezone,
 }: ExpansionPromptInput): string {
-  const currentDateTime = now.toISOString();
+  const utcDateTime = now.toISOString();
   const sourceLabel = source === 'AUDIO' ? 'audio transcription' : 'typed text';
 
-  return `Current date and time: ${currentDateTime}
+  // Build a local-time line so Claude can correctly interpret relative
+  // expressions like "tonight" in the user's actual timezone.
+  let localDateLine = '';
+  if (timezone) {
+    try {
+      const localDateTime = new Intl.DateTimeFormat('en-CA', {
+        timeZone: timezone,
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+        hour12: false,
+      }).format(now).replace(', ', 'T');
+      localDateLine = `\nUser's local date and time (${timezone}): ${localDateTime}`;
+    } catch {
+      // Invalid timezone string — fall back to UTC only
+    }
+  }
+
+  return `Current date and time (UTC): ${utcDateTime}${localDateLine}
 Source: ${sourceLabel}
 
 Note content:
 """
 ${rawContent.trim()}
 """`;
+}
+
+// ---------------------------------------------------------------------------
+// Correction user message builder
+// ---------------------------------------------------------------------------
+
+export interface CorrectionPromptInput {
+  rawContent: string;
+  source: NoteSource;
+  currentFields: {
+    title: string | null;
+    description: string | null;
+    type: string | null;
+    category: string | null;
+    dueDate: string | null; // ISO string
+    reminderAt: string | null;
+  };
+  correctionText: string;
+  now: Date;
+  timezone?: string;
+}
+
+export function buildCorrectionUserMessage({
+  rawContent,
+  source,
+  currentFields,
+  correctionText,
+  now,
+  timezone,
+}: CorrectionPromptInput): string {
+  const utcDateTime = now.toISOString();
+  const sourceLabel = source === 'AUDIO' ? 'audio transcription' : 'typed text';
+
+  let localDateLine = '';
+  if (timezone) {
+    try {
+      const localDateTime = new Intl.DateTimeFormat('en-CA', {
+        timeZone: timezone,
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+        hour12: false,
+      }).format(now).replace(', ', 'T');
+      localDateLine = `\nUser's local date and time (${timezone}): ${localDateTime}`;
+    } catch {
+      // Invalid timezone string — fall back to UTC only
+    }
+  }
+
+  return `Current date and time (UTC): ${utcDateTime}${localDateLine}
+Source: ${sourceLabel}
+
+Original note:
+"""
+${rawContent.trim()}
+"""
+
+Current expanded fields:
+${JSON.stringify(currentFields, null, 2)}
+
+User correction:
+"""
+${correctionText.trim()}
+"""
+
+Apply the correction and return the complete updated fields as JSON. Preserve all fields not mentioned in the correction exactly as they are.`;
 }

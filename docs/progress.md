@@ -1,7 +1,7 @@
 # QuickNote — Session Progress
 
 > Keep this file up to date. Read it at the start of every session before touching code.
-> Last updated: session 2 (mobile-first redesign + bottom tab layout + AI bug fixes)
+> Last updated: session 3 (Postgres migration, Vercel-readiness, Wada Sanzo UI overhaul)
 
 ---
 
@@ -91,8 +91,8 @@ To test: `npm run dev`, open `http://localhost:3000`; the app renders in a 390px
 
 | Area | Status | Blocker |
 |---|---|---|
-| Database | Schema defined, client generated, **no migrations run** | Need `DATABASE_URL` in `.env.local` + `npx prisma migrate dev` |
-| Note persistence | Notes live in React state only — lost on refresh | DB must be live first |
+| Database | **Live on Neon PostgreSQL** ✓ | — |
+| Note persistence | Notes live in React state only — lost on refresh | Auth must be wired to associate notes with users |
 | Auth (NextAuth) | Stub only | `lib/auth.ts` needs Google provider config |
 | Google OAuth | Not started | Need `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` in env |
 | Google Calendar | Stub only | Auth must work first |
@@ -116,6 +116,29 @@ SQLite does not support Prisma enums. All four enum-like fields (`source`, `type
 ### AI model: `claude-sonnet-4-6`
 Set in `lib/ai/expand.ts` as `const MODEL`. Changed from legacy date-suffixed ID.
 
+### Prisma 5 on Neon (PostgreSQL)
+Migrated from SQLite to Neon (PostgreSQL) in session 3. Schema now uses proper Prisma enums (`NoteSource`, `NoteType`, `NoteCategory`, `NoteStatus`). Two URLs in `.env` / `.env.local`:
+- `DATABASE_URL`: pooled Neon URL (app runtime, PgBouncer)
+- `DIRECT_URL`: direct (non-pooled) Neon URL (Prisma migrations only)
+Old SQLite migrations deleted; fresh migration `20260315_init` applied.
+
+### Vercel build configuration
+`package.json` updated:
+- `"build": "prisma migrate deploy && next build"` — runs schema migrations before building
+- `"postinstall": "prisma generate"` — regenerates Prisma client on every `npm install`
+
+### Wada Sanzo palette
+Deep indigo-grey backgrounds (`#1b1a2e` page, `#252340` cards, `#141328` tab bar), warm sand/cream text (`#e8dfc8`), muted indigo-grey secondary (`#877fa0`, `#5c5572`), cinnabar red (`#c94e3b`) for badges/urgency/delete action.
+
+### Typography
+DM Sans (body: 400/500/600) + Fraunces (display: 600) loaded via `next/font/google`. CSS variables `--font-dm-sans` and `--font-fraunces`. Fraunces used on: wordmark, Notes header, note detail panel title.
+
+### Note detail panel
+`components/NoteDetailPanel.tsx` — slides in from right (`translateX(100%)` → `0`) over the full app frame when a note card is tapped. Shows title (Fraunces), description, due date, reminder time. Close button (back arrow) returns to list.
+
+### Compressed NoteCard
+Cards now show: title (1 line, truncated) + urgency dot on row 1; category label + formatted due date on row 2. No description visible inline. Description/detail lives in the detail panel. Tapping a card (no swipe) opens NoteDetailPanel.
+
 ### Expand route accepts raw content directly
 `POST /api/notes/expand` accepts `{ rawContent, source }` (not `{ noteId }`) for the DB-free MVP. When Prisma is wired, switch to `{ noteId }` → fetch → expand → write back.
 
@@ -135,10 +158,9 @@ Originally used `z.string().datetime({ offset: true })` which rejected Claude's 
 
 ## Next steps (in order)
 
-1. **Wire up the database**
-   - Add `DATABASE_URL=file:./dev.db` to `.env.local`
-   - Run `npx prisma migrate dev --name init`
-   - Verify `lib/prisma.ts` client works
+1. **Deploy to Vercel**
+   - Add env vars in Vercel dashboard (see below)
+   - Connect GitHub repo → Vercel will auto-run `prisma migrate deploy && next build`
 
 2. **Wire up NextAuth + Google OAuth**
    - Fill in `lib/auth.ts` with Google provider config

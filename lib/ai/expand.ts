@@ -43,8 +43,9 @@ export async function expandNote(
   rawContent: string,
   source: NoteSource,
   now: Date = new Date(),
+  timezone?: string,
 ): Promise<ExpandedNoteFields> {
-  const userMessage = buildExpansionUserMessage({ rawContent, source, now });
+  const userMessage = buildExpansionUserMessage({ rawContent, source, now, timezone });
 
   let response: Anthropic.Message;
 

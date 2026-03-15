@@ -1,17 +1,46 @@
 // Prisma schema for QuickNote
-// Local dev: SQLite. Production: swap provider to "postgresql" and update DATABASE_URL.
-//
-// NOTE: SQLite does not support Prisma enums. Enum-like fields use String with
-// TypeScript union types in lib/types.ts enforcing valid values at the app layer.
-// When switching to PostgreSQL, replace String fields with proper enum types.
+// PostgreSQL (Neon) — enums are fully supported
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum NoteSource {
+  TEXT
+  AUDIO
+}
+
+enum NoteType {
+  TASK
+  REMINDER
+  EVENT
+  INFO
+}
+
+enum NoteCategory {
+  WORK
+  PERSONAL
+  HEALTH
+  FINANCE
+  OTHER
+}
+
+enum NoteStatus {
+  PENDING
+  EXPANDED
+  DISMISSED
+  DONE
+  ERROR
 }
 
 // ---------------------------------------------------------------------------
@@ -70,32 +99,35 @@ model VerificationToken {
 // ---------------------------------------------------------------------------
 
 model Note {
-  id          String  @id @default(cuid())
-  userId      String?
-  user        User?   @relation(fields: [userId], references: [id])
+  id      String  @id @default(cuid())
+  userId  String?
+  user    User?   @relation(fields: [userId], references: [id])
 
   // Raw input
-  rawContent  String
-  source      String  // NoteSource: 'TEXT' | 'AUDIO'
+  rawContent String
+  source     NoteSource
 
-  // AI-expanded fields — null until status = 'EXPANDED'
+  // AI-expanded fields — null until status = EXPANDED
   title       String?
   description String?
-  type        String? // NoteType: 'TASK' | 'REMINDER' | 'EVENT' | 'INFO'
-  category    String? // NoteCategory: 'WORK' | 'PERSONAL' | 'HEALTH' | 'FINANCE' | 'OTHER'
+  type        NoteType?
+  category    NoteCategory?
   dueDate     DateTime?
   reminderAt  DateTime?
 
   // Relational nudge schedule (one row per nudge)
   nudgeSchedule NudgeSchedule[]
 
+  // Correction history
+  corrections Correction[]
+
   // Integrations
   calendarEventId String?
 
-  // Lifecycle — NoteStatus: 'PENDING' | 'EXPANDED' | 'DISMISSED' | 'DONE'
-  status      String   @default("PENDING")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  // Lifecycle
+  status    NoteStatus @default(PENDING)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
 }
 
 model NudgeSchedule {
@@ -103,6 +135,22 @@ model NudgeSchedule {
   noteId      String
   note        Note     @relation(fields: [noteId], references: [id], onDelete: Cascade)
   scheduledAt DateTime
+
+  @@index([noteId])
+}
+
+// One row per changed field per correction submission.
+// Accumulates over time as a personalisation signal.
+model Correction {
+  id             String   @id @default(cuid())
+  noteId         String
+  note           Note     @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  correctionText String
+  rawInput       String
+  fieldChanged   String
+  oldValue       String
+  newValue       String
+  createdAt      DateTime @default(now())
 
   @@index([noteId])
 }
