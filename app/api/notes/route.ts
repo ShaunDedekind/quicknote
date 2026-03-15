@@ -23,6 +23,10 @@ function toLocalNote(
     dueDate: Date | null;
     reminderAt: Date | null;
     nudgeSchedule: { scheduledAt: Date }[];
+    calendarWorthy: boolean;
+    suggestedEventTitle: string | null;
+    suggestedDuration: number | null;
+    calendarEventId: string | null;
   },
 ): LocalNote {
   return {
@@ -38,6 +42,10 @@ function toLocalNote(
     dueDate: note.dueDate ?? undefined,
     reminderAt: note.reminderAt ?? undefined,
     nudgeDates: note.nudgeSchedule.map(n => n.scheduledAt),
+    calendarWorthy: note.calendarWorthy,
+    suggestedEventTitle: note.suggestedEventTitle,
+    suggestedDuration: note.suggestedDuration,
+    calendarEventId: note.calendarEventId,
   };
 }
 
@@ -61,7 +69,7 @@ export async function GET(): Promise<NextResponse> {
 const postSchema = z.object({
   rawContent: z.string().min(1, 'Note content is required').max(5000),
   source: z.enum(['TEXT', 'AUDIO']),
-  timezone: z.string().optional(), // IANA timezone, e.g. "Pacific/Auckland"
+  timezone: z.string().optional(),
 });
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
@@ -101,7 +109,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 
-  // Persist expanded fields + nudge schedule
+  // Persist expanded fields + nudge schedule + calendar fields
   const updatedNote = await prisma.note.update({
     where: { id: note.id },
     data: {
@@ -115,6 +123,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       nudgeSchedule: {
         create: expanded.nudgeDates.map(d => ({ scheduledAt: d })),
       },
+      calendarWorthy: expanded.calendarWorthy,
+      suggestedEventTitle: expanded.suggestedEventTitle,
+      suggestedDuration: expanded.suggestedDuration,
+      suggestedAttendees: expanded.suggestedAttendees
+        ? JSON.stringify(expanded.suggestedAttendees)
+        : null,
     },
     include: { nudgeSchedule: true },
   });

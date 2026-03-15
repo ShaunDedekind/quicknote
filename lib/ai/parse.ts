@@ -19,9 +19,12 @@ const expansionResponseSchema = z.object({
   description: z.string().min(1),
   dueDate: z.union([isoDateSchema, z.null()]),
   reminderAt: z.union([isoDateSchema, z.null()]),
-  nudgeDates: z
-    .array(isoDateSchema)
-    .max(3, 'Claude returned more than 3 nudge dates'),
+  nudgeDates: z.array(isoDateSchema).max(3, 'Claude returned more than 3 nudge dates'),
+  // Calendar fields
+  calendarWorthy: z.boolean(),
+  suggestedEventTitle: z.string().max(100).nullable(),
+  suggestedDuration: z.number().int().min(5).max(480).nullable(),
+  suggestedAttendees: z.array(z.string()).max(10).nullable(),
 });
 
 // ---------------------------------------------------------------------------
@@ -73,8 +76,10 @@ export function parseExpansionResponse(raw: string): ExpandedNoteFields {
     );
   }
 
-  const { type, category, title, description, dueDate, reminderAt, nudgeDates } =
-    result.data;
+  const {
+    type, category, title, description, dueDate, reminderAt, nudgeDates,
+    calendarWorthy, suggestedEventTitle, suggestedDuration, suggestedAttendees,
+  } = result.data;
 
   return {
     type,
@@ -84,5 +89,9 @@ export function parseExpansionResponse(raw: string): ExpandedNoteFields {
     dueDate,
     reminderAt,
     nudgeDates,
+    calendarWorthy,
+    suggestedEventTitle,
+    suggestedDuration,
+    suggestedAttendees,
   };
 }

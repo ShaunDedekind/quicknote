@@ -90,6 +90,15 @@ export default function AppShell() {
     }, 300);
   }, []);
 
+  const handleCalendarEventCreated = useCallback(
+    (noteId: string, calendarEventId: string) => {
+      setNotes(prev =>
+        prev.map(n => (n.id === noteId ? { ...n, calendarEventId } : n)),
+      );
+    },
+    [],
+  );
+
   return (
     <div className="flex justify-center bg-[#0f0e1a] h-dvh">
       <div className="relative flex flex-col bg-[#1b1a2e] w-full max-w-[390px] h-dvh border-x border-white/[0.04]">
@@ -106,7 +115,11 @@ export default function AppShell() {
           )}
 
           {/* Slide-in detail panel — rendered over both tabs */}
-          <NoteDetailPanel note={selectedNote} onClose={() => setSelectedNote(null)} />
+          <NoteDetailPanel
+            note={selectedNote}
+            onClose={() => setSelectedNote(null)}
+            onCalendarEventCreated={handleCalendarEventCreated}
+          />
         </div>
 
         <BottomTabBar

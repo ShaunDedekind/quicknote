@@ -1,7 +1,7 @@
 # QuickNote — Session Progress
 
 > Keep this file up to date. Read it at the start of every session before touching code.
-> Last updated: session 3 (Postgres migration, Vercel-readiness, Wada Sanzo UI overhaul)
+> Last updated: session 4 (Google Calendar integration — auth, AI calendar assessment, Add to Calendar UI)
 
 ---
 
@@ -139,6 +139,44 @@ DM Sans (body: 400/500/600) + Fraunces (display: 600) loaded via `next/font/goog
 ### Compressed NoteCard
 Cards now show: title (1 line, truncated) + urgency dot on row 1; category label + formatted due date on row 2. No description visible inline. Description/detail lives in the detail panel. Tapping a card (no swipe) opens NoteDetailPanel.
 
+### Google Calendar integration
+Implemented in session 4. Full stack from AI assessment through to event creation.
+
+**AI calendar assessment** — system prompt updated with new output fields:
+- `calendarWorthy: boolean` — true for meetings, appointments, events; false for tasks/errands/info
+- `suggestedEventTitle: string | null` — clean calendar event title (≤50 chars)
+- `suggestedDuration: number | null` — estimated minutes (default 60)
+- `suggestedAttendees: string[] | null` — names mentioned (no emails — can't invite)
+
+**New DB fields on Note** — migration `20260315_add_calendar_fields` applied:
+- `calendarWorthy Boolean @default(false)`
+- `suggestedEventTitle String?`
+- `suggestedDuration Int?`
+- `suggestedAttendees String?` (JSON-encoded string[])
+- `calendarEventId String?` (already existed, now in use)
+
+**Auth** — `lib/auth.ts` fully implemented with NextAuth v4:
+- Google provider with `calendar.events` scope + `access_type=offline` + `prompt=consent`
+- Prisma adapter persists tokens in the `Account` table
+- `session.user.id` exposed via session callback
+- `components/Providers.tsx` wraps the app in `SessionProvider`
+- `NEXTAUTH_URL` and `NEXTAUTH_SECRET` must be set in Vercel env vars
+
+**Token refresh** — `lib/integrations/calendar.ts`:
+- `getValidAccessToken(account)` — detects expiry (60s buffer), calls Google `/token` endpoint, writes refreshed token back to DB
+- `createCalendarEvent(accessToken, event)` — POSTs to Google Calendar REST API, returns event ID
+
+**API route** — `POST /api/calendar/create-event`:
+- Requires auth session; looks up user's Google Account in DB
+- Idempotent (returns existing eventId if already created)
+- Error handling for token refresh failure and Calendar API errors
+
+**UI** — `NoteDetailPanel` CalendarButton component:
+- Not signed in → "Sign in with Google to add to Calendar" (calls `signIn('google')`)
+- Signed in + calendarWorthy + no eventId → cinnabar "Add to Calendar" button
+- After creation → green "Added to Calendar ✓"
+- Local state `localEventId` gives instant UI update; callback propagates to AppShell notes array
+
 ### Expand route accepts raw content directly
 `POST /api/notes/expand` accepts `{ rawContent, source }` (not `{ noteId }`) for the DB-free MVP. When Prisma is wired, switch to `{ noteId }` → fetch → expand → write back.
 
@@ -159,15 +197,11 @@ Originally used `z.string().datetime({ offset: true })` which rejected Claude's 
 ## Next steps (in order)
 
 1. **Deploy to Vercel**
-   - Add env vars in Vercel dashboard (see below)
+   - Add env vars in Vercel dashboard: `DATABASE_URL`, `DIRECT_URL`, `ANTHROPIC_API_KEY`, `NEXTAUTH_URL` (your Vercel URL), `NEXTAUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`
+   - In Google Cloud Console: add your Vercel URL to authorized redirect URIs (`https://your-app.vercel.app/api/auth/callback/google`)
    - Connect GitHub repo → Vercel will auto-run `prisma migrate deploy && next build`
 
-2. **Wire up NextAuth + Google OAuth**
-   - Fill in `lib/auth.ts` with Google provider config
-   - Add `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `NEXTAUTH_SECRET` to `.env.local`
-   - Update `app/api/auth/[...nextauth]/route.ts` to re-export from `lib/auth`
-
-3. **Wire up note persistence**
+2. **Wire up note persistence**
    - `POST /api/notes` — validate `{ rawContent, source }`, create `Note` row (status `PENDING`), return `noteId`
    - `POST /api/notes/expand` — switch to `{ noteId }` flow: fetch note, expand, write back expanded fields + `NudgeSchedule` rows
    - `AppShell.addNote` — switch from direct `/api/notes/expand` call to `/api/notes` → get `noteId` → poll or SSE for expansion result

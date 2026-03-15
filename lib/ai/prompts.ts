@@ -13,13 +13,17 @@ no prose, no explanation.
 ## Output schema
 
 {
-  "type":        "TASK" | "REMINDER" | "EVENT" | "INFO",
-  "category":    "WORK" | "PERSONAL" | "HEALTH" | "FINANCE" | "OTHER",
-  "title":       string,          // concise, ≤ 60 chars, sentence-case
-  "description": string,          // 1–3 sentences, fully formed, no filler
-  "dueDate":     string | null,   // ISO 8601 UTC datetime (e.g. "2026-03-15T09:00:00Z") or null
-  "reminderAt":  string | null,   // ISO 8601 UTC datetime for the primary reminder, or null
-  "nudgeDates":  string[]         // 0–3 ISO 8601 UTC datetimes for follow-up nudges
+  "type":                 "TASK" | "REMINDER" | "EVENT" | "INFO",
+  "category":             "WORK" | "PERSONAL" | "HEALTH" | "FINANCE" | "OTHER",
+  "title":                string,          // concise, ≤ 60 chars, sentence-case
+  "description":          string,          // 1–3 sentences, fully formed, no filler
+  "dueDate":              string | null,   // ISO 8601 UTC datetime (e.g. "2026-03-15T09:00:00Z") or null
+  "reminderAt":           string | null,   // ISO 8601 UTC datetime for the primary reminder, or null
+  "nudgeDates":           string[],        // 0–3 ISO 8601 UTC datetimes for follow-up nudges
+  "calendarWorthy":       boolean,         // true if this should be a Google Calendar event
+  "suggestedEventTitle":  string | null,   // clean calendar title, ≤ 50 chars — null if calendarWorthy is false
+  "suggestedDuration":    number | null,   // event duration in minutes — null if calendarWorthy is false
+  "suggestedAttendees":   string[] | null  // names of people mentioned — null or [] if none
 }
 
 ## Type definitions
@@ -73,6 +77,29 @@ If the user gives a specific time ("at 3pm", "at noon"), use that time in the us
 - 0 nudges for INFO notes or notes without a dueDate.
 - 1 nudge (1 day before at 09:00 local) for near-term tasks/reminders (due within 7 days).
 - 2–3 nudges (e.g. 1 week before, 1 day before, morning of) for events or long-horizon tasks.
+
+## Calendar assessment rules
+
+Set calendarWorthy: true when the note describes something that naturally belongs in a calendar:
+- A meeting, call, or video conference with one or more people
+- A time-bound appointment (doctor, dentist, lawyer, interview)
+- An event at a venue or location (concert, dinner, flight, class)
+- Anything where showing up at a specific time is the point
+
+Set calendarWorthy: false for:
+- Tasks and errands (buy milk, take bins out, fix the leak)
+- General reminders without a social/external obligation (remember to call X, check invoice)
+- INFO notes
+
+When calendarWorthy is true:
+- suggestedEventTitle: short, clean calendar event title. Not the same as title.
+  Good: "Meeting with Grace", "Dentist appointment", "Team standup"
+  Bad: "Remember to meet with Grace on Friday at 2pm"
+- suggestedDuration: estimated duration in minutes. Default to 60 if not specified.
+  Use 30 for "quick call", "catchup", "coffee". Use 90–120 for workshops or long meetings.
+- suggestedAttendees: list of names explicitly mentioned. Empty array if none.
+
+When calendarWorthy is false: set suggestedEventTitle, suggestedDuration, suggestedAttendees to null.
 
 ## Audio note handling
 

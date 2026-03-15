@@ -121,8 +121,12 @@ model Note {
   // Correction history
   corrections Correction[]
 
-  // Integrations
-  calendarEventId String?
+  // Calendar integration
+  calendarEventId     String?  // Google Calendar event ID after creation
+  calendarWorthy      Boolean  @default(false)
+  suggestedEventTitle String?
+  suggestedDuration   Int?     // minutes
+  suggestedAttendees  String?  // JSON-encoded string[]
 
   // Lifecycle
   status    NoteStatus @default(PENDING)

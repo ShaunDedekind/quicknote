@@ -76,6 +76,11 @@ export interface ExpandedNoteFields {
   dueDate: Date | null;
   reminderAt: Date | null;
   nudgeDates: Date[]; // flat list; stored as NudgeScheduleEntry rows
+  // Calendar assessment
+  calendarWorthy: boolean;
+  suggestedEventTitle: string | null;
+  suggestedDuration: number | null; // minutes
+  suggestedAttendees: string[] | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -97,6 +102,11 @@ export interface LocalNote {
   dueDate?: Date | null;
   reminderAt?: Date | null;
   nudgeDates?: Date[];
+  // Calendar
+  calendarWorthy?: boolean;
+  suggestedEventTitle?: string | null;
+  suggestedDuration?: number | null;
+  calendarEventId?: string | null;
 }
 
 // ---------------------------------------------------------------------------
