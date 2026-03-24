@@ -1,7 +1,7 @@
 # QuickNote — Session Progress
 
 > Keep this file up to date. Read it at the start of every session before touching code.
-> Last updated: session 5 (Settings tab — Google Account connect/disconnect, Calendar toggle, placeholder sections; NoteDetailPanel signpost to Settings)
+> Last updated: session 6 (Note persistence — delete and mark-done now write to DB; fixed notes reappearing on refresh)
 
 ---
 
@@ -92,7 +92,7 @@ To test: `npm run dev`, open `http://localhost:3000`; the app renders in a 390px
 | Area | Status | Blocker |
 |---|---|---|
 | Database | **Live on Neon PostgreSQL** ✓ | — |
-| Note persistence | Notes live in React state only — lost on refresh | Auth must be wired to associate notes with users |
+| Note persistence | Notes saved to DB on create; delete/done persist via PATCH /api/notes/[id] ✓ | Auth must be wired to associate notes with users |
 | Auth (NextAuth) | Stub only | `lib/auth.ts` needs Google provider config |
 | Google OAuth | Not started | Need `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` in env |
 | Google Calendar | Stub only | Auth must work first |
