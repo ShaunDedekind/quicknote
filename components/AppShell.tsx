@@ -98,6 +98,14 @@ export default function AppShell() {
   const deleteNote = useCallback((id: string) => {
     setNotes(prev => prev.filter(n => n.id !== id));
     setSelectedNote(prev => (prev?.id === id ? null : prev));
+    // Only persist real DB notes (temp IDs start with "local-")
+    if (!id.startsWith('local-')) {
+      fetch(`/api/notes/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'DISMISSED' }),
+      }).catch(err => console.error('[deleteNote] Failed to persist:', err));
+    }
   }, []);
 
   const markNoteDone = useCallback((id: string) => {
@@ -105,6 +113,13 @@ export default function AppShell() {
       setNotes(prev => prev.filter(n => n.id !== id));
       setSelectedNote(prev => (prev?.id === id ? null : prev));
     }, 300);
+    if (!id.startsWith('local-')) {
+      fetch(`/api/notes/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'DONE' }),
+      }).catch(err => console.error('[markNoteDone] Failed to persist:', err));
+    }
   }, []);
 
   const handleCalendarEventCreated = useCallback(

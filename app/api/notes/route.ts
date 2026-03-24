@@ -55,6 +55,7 @@ function toLocalNote(
 
 export async function GET(): Promise<NextResponse> {
   const notes = await prisma.note.findMany({
+    where: { status: { notIn: ['DONE', 'DISMISSED'] } },
     orderBy: { createdAt: 'desc' },
     include: { nudgeSchedule: true },
   });
