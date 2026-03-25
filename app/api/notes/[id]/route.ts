@@ -35,10 +35,14 @@ export async function PATCH(
 
   const { id } = await params;
 
-  // updateMany lets us enforce ownership in the same query
+  const data =
+    'status' in parsed.data
+      ? { status: parsed.data.status }
+      : { pinnedToToday: parsed.data.pinnedToToday };
+
   const result = await prisma.note.updateMany({
     where: { id, userId: session.user.id },
-    data: { status: parsed.data.status },
+    data,
   });
 
   if (result.count === 0) {
