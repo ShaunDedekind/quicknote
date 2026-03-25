@@ -4,9 +4,10 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
-const patchSchema = z.object({
-  status: z.enum(['DONE', 'DISMISSED']),
-});
+const patchSchema = z.union([
+  z.object({ status: z.enum(['DONE', 'DISMISSED']) }),
+  z.object({ pinnedToToday: z.boolean() }),
+]);
 
 export async function PATCH(
   request: NextRequest,

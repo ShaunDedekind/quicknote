@@ -1,7 +1,7 @@
 # QuickNote — Session Progress
 
 > Keep this file up to date. Read it at the start of every session before touching code.
-> Last updated: session 7 (User-scoped notes — all API routes now auth-gated; notes persisted and returned per authenticated user; DB indexes added; dead code removed)
+> Last updated: session 8 (Day-grouped list view with drag-to-pull-forward; NoteCard redesign; pinnedToToday DB field)
 
 ---
 

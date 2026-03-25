@@ -138,6 +138,15 @@ export default function AppShell() {
     [],
   );
 
+  const pinToToday = useCallback((id: string) => {
+    setNotes(prev => prev.map(n => n.id === id ? { ...n, pinnedToToday: true } : n));
+    fetch(`/api/notes/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pinnedToToday: true }),
+    }).catch(err => console.error('[pinToToday] Failed to persist:', err));
+  }, []);
+
   return (
     <div className="flex justify-center bg-[#0f0e1a] h-dvh">
       <div className="relative flex flex-col bg-[#1b1a2e] w-full max-w-[390px] h-dvh border-x border-white/[0.04]">
@@ -150,6 +159,7 @@ export default function AppShell() {
               onDelete={deleteNote}
               onMarkDone={markNoteDone}
               onSelect={setSelectedNote}
+              onPinToToday={pinToToday}
             />
           ) : (
             <SettingsTab highlightGoogleAccount={highlightGoogleAccount} />

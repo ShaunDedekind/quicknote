@@ -29,6 +29,7 @@ function toLocalNote(
     suggestedEventTitle: string | null;
     suggestedDuration: number | null;
     calendarEventId: string | null;
+    pinnedToToday: boolean;
   },
 ): LocalNote {
   return {
@@ -48,6 +49,7 @@ function toLocalNote(
     suggestedEventTitle: note.suggestedEventTitle,
     suggestedDuration: note.suggestedDuration,
     calendarEventId: note.calendarEventId,
+    pinnedToToday: note.pinnedToToday,
   };
 }
 
