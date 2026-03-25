@@ -107,6 +107,8 @@ export interface LocalNote {
   suggestedEventTitle?: string | null;
   suggestedDuration?: number | null;
   calendarEventId?: string | null;
+  // Pinned to Today via drag-to-pull-forward
+  pinnedToToday?: boolean;
 }
 
 // ---------------------------------------------------------------------------

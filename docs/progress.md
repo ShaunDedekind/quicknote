@@ -1,7 +1,7 @@
 # QuickNote — Session Progress
 
 > Keep this file up to date. Read it at the start of every session before touching code.
-> Last updated: session 6 (Note persistence — delete and mark-done now write to DB; fixed notes reappearing on refresh)
+> Last updated: session 8 (Day-grouped list view with drag-to-pull-forward; NoteCard redesign; pinnedToToday DB field)
 
 ---
 
@@ -92,7 +92,7 @@ To test: `npm run dev`, open `http://localhost:3000`; the app renders in a 390px
 | Area | Status | Blocker |
 |---|---|---|
 | Database | **Live on Neon PostgreSQL** ✓ | — |
-| Note persistence | Notes saved to DB on create; delete/done persist via PATCH /api/notes/[id] ✓ | Auth must be wired to associate notes with users |
+| Note persistence | Notes saved to DB on create; delete/done persist via PATCH /api/notes/[id] ✓; notes scoped to userId ✓ | — |
 | Auth (NextAuth) | Stub only | `lib/auth.ts` needs Google provider config |
 | Google OAuth | Not started | Need `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` in env |
 | Google Calendar | Stub only | Auth must work first |
@@ -218,12 +218,7 @@ Button text changed to "Connect Google in Settings to add to Calendar".
 
 ## Next steps (in order)
 
-1. **Deploy to Vercel**
-   - Add env vars in Vercel dashboard: `DATABASE_URL`, `DIRECT_URL`, `ANTHROPIC_API_KEY`, `NEXTAUTH_URL` (your Vercel URL), `NEXTAUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`
-   - In Google Cloud Console: add your Vercel URL to authorized redirect URIs (`https://your-app.vercel.app/api/auth/callback/google`)
-   - Connect GitHub repo → Vercel will auto-run `prisma migrate deploy && next build`
-
-2. **Wire up note persistence**
+1. **Wire up note persistence**
    - `POST /api/notes` — validate `{ rawContent, source }`, create `Note` row (status `PENDING`), return `noteId`
    - `POST /api/notes/expand` — switch to `{ noteId }` flow: fetch note, expand, write back expanded fields + `NudgeSchedule` rows
    - `AppShell.addNote` — switch from direct `/api/notes/expand` call to `/api/notes` → get `noteId` → poll or SSE for expansion result

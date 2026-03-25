@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { expandNote, NoteExpansionError } from '@/lib/ai/expand';
 import { ExpansionParseError } from '@/lib/ai/parse';
@@ -27,6 +29,7 @@ function toLocalNote(
     suggestedEventTitle: string | null;
     suggestedDuration: number | null;
     calendarEventId: string | null;
+    pinnedToToday: boolean;
   },
 ): LocalNote {
   return {
@@ -46,6 +49,7 @@ function toLocalNote(
     suggestedEventTitle: note.suggestedEventTitle,
     suggestedDuration: note.suggestedDuration,
     calendarEventId: note.calendarEventId,
+    pinnedToToday: note.pinnedToToday,
   };
 }
 
@@ -54,8 +58,13 @@ function toLocalNote(
 // ---------------------------------------------------------------------------
 
 export async function GET(): Promise<NextResponse> {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const notes = await prisma.note.findMany({
-    where: { status: { notIn: ['DONE', 'DISMISSED'] } },
+    where: { userId: session.user.id, status: { notIn: ['DONE', 'DISMISSED'] } },
     orderBy: { createdAt: 'desc' },
     include: { nudgeSchedule: true },
   });
@@ -74,6 +83,11 @@ const postSchema = z.object({
 });
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   let body: unknown;
   try {
     body = await request.json();
@@ -93,7 +107,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   // Save raw note immediately as PENDING
   const note = await prisma.note.create({
-    data: { rawContent, source, status: 'PENDING' },
+    data: { rawContent, source, status: 'PENDING', userId: session.user.id },
     include: { nudgeSchedule: true },
   });
 
@@ -109,8 +123,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     console.error('[POST /api/notes] Expansion error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
-
-  console.log('[notes POST] calendarWorthy from AI:', expanded.calendarWorthy, '| type:', expanded.type, '| dueDate:', expanded.dueDate);
 
   // Persist expanded fields + nudge schedule + calendar fields
   const updatedNote = await prisma.note.update({
@@ -135,8 +147,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     },
     include: { nudgeSchedule: true },
   });
-
-  console.log('[notes POST] DB saved calendarWorthy:', updatedNote.calendarWorthy);
 
   return NextResponse.json({ note: toLocalNote(updatedNote) }, { status: 201 });
 }

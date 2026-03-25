@@ -122,16 +122,22 @@ model Note {
   corrections Correction[]
 
   // Calendar integration
-  calendarEventId     String?  // Google Calendar event ID after creation
+  calendarEventId     String?
   calendarWorthy      Boolean  @default(false)
   suggestedEventTitle String?
-  suggestedDuration   Int?     // minutes
-  suggestedAttendees  String?  // JSON-encoded string[]
+  suggestedDuration   Int?
+  suggestedAttendees  String?
+
+  // Pinned to Today (drag-to-pull-forward)
+  pinnedToToday Boolean @default(false)
 
   // Lifecycle
   status    NoteStatus @default(PENDING)
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
+
+  @@index([userId])
+  @@index([userId, status])
 }
 
 model NudgeSchedule {

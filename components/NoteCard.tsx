@@ -8,18 +8,12 @@ interface Props {
   onDelete: (id: string) => void;
   onMarkDone: (id: string) => void;
   onTap: (note: LocalNote) => void;
+  // Drag-to-pull-forward
+  onLongPress?: (id: string, clientY: number) => void;
+  isDraggable?: boolean;
+  isDragging?: boolean; // ghost is showing — render this card transparent
 }
 
-// Left-edge accent colour per category
-const CATEGORY_COLOR: Record<NoteCategory, string> = {
-  WORK:     '#4b7fd4',
-  PERSONAL: '#9265cc',
-  HEALTH:   '#38b089',
-  FINANCE:  '#c89b3c',
-  OTHER:    '#5c5572',
-};
-
-// Text colour for the category pill label
 const CATEGORY_TEXT: Record<NoteCategory, string> = {
   WORK:     'text-[#4b7fd4]',
   PERSONAL: 'text-[#9265cc]',
@@ -28,21 +22,12 @@ const CATEGORY_TEXT: Record<NoteCategory, string> = {
   OTHER:    'text-[#5c5572]',
 };
 
-type Urgency = 'high' | 'medium' | 'low';
-
-// Urgency dot: cinnabar red for high, muted amber/green for others
-const URGENCY_DOT: Record<Urgency, { bg: string; glow: string }> = {
-  high:   { bg: 'bg-[#c94e3b]', glow: '0 0 6px 1px rgba(201,78,59,0.65)'  },
-  medium: { bg: 'bg-[#c89b3c]', glow: '0 0 6px 1px rgba(200,155,60,0.55)' },
-  low:    { bg: 'bg-[#38b089]', glow: '0 0 6px 1px rgba(56,176,137,0.5)'  },
-};
-
-function getUrgency(dueDate?: Date | null): Urgency | null {
-  if (!dueDate) return null;
-  const diffHours = (dueDate.getTime() - Date.now()) / 3_600_000;
-  if (diffHours < 24) return 'high';
-  if (diffHours < 168) return 'medium';
-  return 'low';
+// Left border: red = urgent/overdue, teal = has a due time, grey = no date
+function getLeftBorderColor(note: LocalNote): string {
+  if (!note.dueDate) return '#3d3a5a';
+  const diffHours = (note.dueDate.getTime() - Date.now()) / 3_600_000;
+  if (diffHours < 24) return '#c94e3b';
+  return '#38b089';
 }
 
 function formatDate(date: Date): string {
@@ -52,7 +37,7 @@ function formatDate(date: Date): string {
   tomorrow.setDate(now.getDate() + 1);
   const isTomorrow = date.toDateString() === tomorrow.toDateString();
   const time = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-  if (isToday) return `Today · ${time}`;
+  if (isToday) return time;
   if (isTomorrow) return `Tomorrow · ${time}`;
   return (
     date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) +
@@ -60,27 +45,68 @@ function formatDate(date: Date): string {
   );
 }
 
-export default function NoteCard({ note, onDelete, onMarkDone, onTap }: Props) {
+// Show "due Thu" label when a card has been pinned to Today from a future date
+function getDueDayLabel(note: LocalNote): string | null {
+  if (!note.pinnedToToday || !note.dueDate) return null;
+  const today = new Date();
+  if (note.dueDate.toDateString() === today.toDateString()) return null;
+  const tomorrow = new Date(today);
+  tomorrow.setDate(today.getDate() + 1);
+  if (note.dueDate.toDateString() === tomorrow.toDateString()) return 'due tomorrow';
+  return `due ${note.dueDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}`;
+}
+
+export default function NoteCard({
+  note, onDelete, onMarkDone, onTap,
+  onLongPress, isDraggable = false, isDragging = false,
+}: Props) {
   const [swipeX, setSwipeX] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
   const [exitDir, setExitDir] = useState<'left' | 'right' | null>(null);
   const touchStartX = useRef(0);
   const wasSwipingRef = useRef(false);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressTriggered = useRef(false);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
-    setIsSwiping(true);
     wasSwipingRef.current = false;
+    longPressTriggered.current = false;
+    setIsSwiping(true);
+
+    if (isDraggable && onLongPress) {
+      const clientY = e.touches[0].clientY;
+      longPressTimer.current = setTimeout(() => {
+        longPressTriggered.current = true;
+        onLongPress(note.id, clientY);
+      }, 500);
+    }
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
     const delta = e.touches[0].clientX - touchStartX.current;
-    if (Math.abs(delta) > 5) wasSwipingRef.current = true;
-    setSwipeX(Math.max(-130, Math.min(130, delta)));
+    if (Math.abs(delta) > 8) {
+      wasSwipingRef.current = true;
+      if (longPressTimer.current) {
+        clearTimeout(longPressTimer.current);
+        longPressTimer.current = null;
+      }
+    }
+    if (!longPressTriggered.current) {
+      setSwipeX(Math.max(-130, Math.min(130, delta)));
+    }
   };
 
   const handleTouchEnd = () => {
     setIsSwiping(false);
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+    if (longPressTriggered.current) {
+      setSwipeX(0);
+      return;
+    }
     if (swipeX < -80) {
       setExitDir('left');
       setTimeout(() => onDelete(note.id), 280);
@@ -93,19 +119,18 @@ export default function NoteCard({ note, onDelete, onMarkDone, onTap }: Props) {
   };
 
   const handleClick = () => {
-    if (!wasSwipingRef.current && note.status === 'EXPANDED') onTap(note);
+    if (!wasSwipingRef.current && !longPressTriggered.current && note.status === 'EXPANDED') {
+      onTap(note);
+    }
   };
 
-  const urgency = getUrgency(note.dueDate);
-  const category = note.category ?? 'OTHER';
-  const accentColor = CATEGORY_COLOR[category];
+  const borderColor = note.status === 'EXPANDED' ? getLeftBorderColor(note) : 'transparent';
+  const dueDayLabel = getDueDayLabel(note);
 
   const cardTransform =
-    exitDir === 'left'
-      ? 'translateX(-110%)'
-      : exitDir === 'right'
-        ? 'translateX(110%)'
-        : `translateX(${swipeX}px)`;
+    exitDir === 'left' ? 'translateX(-110%)' :
+    exitDir === 'right' ? 'translateX(110%)' :
+    `translateX(${swipeX}px)`;
 
   const cardTransition =
     exitDir || !isSwiping
@@ -115,9 +140,13 @@ export default function NoteCard({ note, onDelete, onMarkDone, onTap }: Props) {
   return (
     <div
       className="relative mb-2 overflow-hidden rounded-xl"
-      style={{ animation: 'card-enter 0.38s cubic-bezier(0.34, 1.56, 0.64, 1) both' }}
+      style={{
+        animation: 'card-enter 0.38s cubic-bezier(0.34, 1.56, 0.64, 1) both',
+        opacity: isDragging ? 0.15 : 1,
+        transition: 'opacity 0.15s',
+      }}
     >
-      {/* Swipe action backgrounds */}
+      {/* Swipe backgrounds */}
       <div className="absolute inset-0 flex items-stretch rounded-xl">
         <div className="flex flex-1 items-center pl-4 rounded-l-xl bg-[#38b089]">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -133,12 +162,12 @@ export default function NoteCard({ note, onDelete, onMarkDone, onTap }: Props) {
         </div>
       </div>
 
-      {/* Card */}
+      {/* Card face */}
       <div
         style={{
           transform: cardTransform,
           transition: cardTransition,
-          borderLeft: note.status === 'EXPANDED' ? `2px solid ${accentColor}` : '2px solid transparent',
+          borderLeft: `2px solid ${borderColor}`,
         }}
         className="relative bg-[#252340] rounded-xl px-3.5 py-3 select-none cursor-pointer"
         onTouchStart={handleTouchStart}
@@ -159,34 +188,39 @@ export default function NoteCard({ note, onDelete, onMarkDone, onTap }: Props) {
             <p className="text-sm text-[#877fa0] line-clamp-1">{note.rawContent}</p>
           </div>
         ) : (
-          <div className="flex flex-col gap-1">
-            {/* Row 1: title + urgency dot */}
-            <div className="flex items-center justify-between gap-2">
-              <p className="flex-1 text-[14px] font-semibold leading-snug text-[#e8dfc8] truncate">
+          <div className="flex items-start gap-3">
+            {/* Content */}
+            <div className="flex-1 min-w-0 flex flex-col gap-1">
+              <p className="text-[14px] font-semibold leading-snug text-[#e8dfc8] truncate">
                 {note.title ?? note.rawContent}
               </p>
-              {urgency && (
-                <span
-                  className={`h-1.5 w-1.5 shrink-0 rounded-full ${URGENCY_DOT[urgency].bg}`}
-                  style={{ boxShadow: URGENCY_DOT[urgency].glow }}
-                />
-              )}
+              <div className="flex items-center flex-wrap gap-x-1.5 gap-y-0.5">
+                {note.category && (
+                  <span className={`text-[10px] font-semibold uppercase tracking-wider ${CATEGORY_TEXT[note.category]}`}>
+                    {note.category.charAt(0) + note.category.slice(1).toLowerCase()}
+                  </span>
+                )}
+                {note.dueDate && (
+                  <>
+                    {note.category && <span className="text-[#5c5572] text-[10px]">·</span>}
+                    <span className="text-[11px] text-[#877fa0]">{formatDate(note.dueDate)}</span>
+                  </>
+                )}
+                {dueDayLabel && (
+                  <>
+                    <span className="text-[#5c5572] text-[10px]">·</span>
+                    <span className="text-[10px] font-medium text-[#38b089]">{dueDayLabel}</span>
+                  </>
+                )}
+              </div>
             </div>
 
-            {/* Row 2: category + date */}
-            <div className="flex items-center gap-1.5">
-              {note.category && (
-                <span className={`text-[10px] font-semibold uppercase tracking-wider ${CATEGORY_TEXT[note.category]}`}>
-                  {note.category.charAt(0) + note.category.slice(1).toLowerCase()}
-                </span>
-              )}
-              {note.category && note.dueDate && (
-                <span className="text-[#5c5572] text-[10px]">·</span>
-              )}
-              {note.dueDate && (
-                <span className="text-[11px] text-[#877fa0]">{formatDate(note.dueDate)}</span>
-              )}
-            </div>
+            {/* Checkbox */}
+            <button
+              className="shrink-0 mt-0.5 h-[18px] w-[18px] rounded-full border border-[#3d3a5a] hover:border-[#38b089] active:border-[#38b089] transition-colors"
+              onClick={(e) => { e.stopPropagation(); onMarkDone(note.id); }}
+              aria-label="Mark done"
+            />
           </div>
         )}
       </div>
