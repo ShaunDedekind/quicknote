@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { useSession } from 'next-auth/react';
 import RecordTab from './RecordTab';
 import ListTab from './ListTab';
 import SettingsTab from './SettingsTab';
@@ -8,32 +9,36 @@ import BottomTabBar, { type Tab } from './BottomTabBar';
 import NoteDetailPanel from './NoteDetailPanel';
 import type { LocalNote, NoteSource } from '@/lib/types';
 
+function parseNotes(fetched: LocalNote[]): LocalNote[] {
+  return fetched.map(n => ({
+    ...n,
+    createdAt: new Date(n.createdAt),
+    dueDate: n.dueDate ? new Date(n.dueDate) : null,
+    reminderAt: n.reminderAt ? new Date(n.reminderAt) : null,
+    nudgeDates: n.nudgeDates?.map(d => new Date(d)),
+  }));
+}
+
 export default function AppShell() {
+  const { status: sessionStatus } = useSession();
   const [activeTab, setActiveTab] = useState<Tab>('record');
   const [notes, setNotes] = useState<LocalNote[]>([]);
   const [selectedNote, setSelectedNote] = useState<LocalNote | null>(null);
   const [highlightGoogleAccount, setHighlightGoogleAccount] = useState(false);
   const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Load persisted notes on mount
+  // Load notes whenever the user becomes authenticated
   useEffect(() => {
+    if (sessionStatus !== 'authenticated') return;
     fetch('/api/notes')
       .then(res => {
-        if (!res.ok) return; // 401 = not signed in yet; leave notes empty
+        if (!res.ok) return;
         return res.json().then(({ notes: fetched }: { notes: LocalNote[] }) => {
-          setNotes(
-            fetched.map(n => ({
-              ...n,
-              createdAt: new Date(n.createdAt),
-              dueDate: n.dueDate ? new Date(n.dueDate) : null,
-              reminderAt: n.reminderAt ? new Date(n.reminderAt) : null,
-              nudgeDates: n.nudgeDates?.map(d => new Date(d)),
-            })),
-          );
+          setNotes(parseNotes(fetched));
         });
       })
       .catch(err => console.error('[AppShell] Failed to load notes:', err));
-  }, []);
+  }, [sessionStatus]);
 
   // Navigate to Settings and briefly highlight the Google Account section
   const handleOpenSettings = useCallback(() => {

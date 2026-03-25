@@ -125,7 +125,7 @@ export default function SettingsTab({ highlightGoogleAccount }: Props) {
             ) : (
               <div className="p-4">
                 <button
-                  onClick={() => signIn('google')}
+                  onClick={() => signIn('google', { callbackUrl: '/' })}
                   className="flex w-full items-center justify-center gap-2.5 rounded-xl border border-white/[0.08] bg-white/[0.05] px-4 py-3 text-[13px] font-medium text-[#e8dfc8] transition-colors hover:bg-white/[0.08] active:scale-[0.98]"
                 >
                   {/* Google colour logo */}
