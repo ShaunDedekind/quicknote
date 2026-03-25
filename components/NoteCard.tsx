@@ -63,13 +63,18 @@ export default function NoteCard({
   const [swipeX, setSwipeX] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
   const [exitDir, setExitDir] = useState<'left' | 'right' | null>(null);
+
   const touchStartX = useRef(0);
+  const touchStartY = useRef(0);
+  const touchStartTime = useRef(0);
   const wasSwipingRef = useRef(false);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressTriggered = useRef(false);
 
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+    touchStartTime.current = Date.now();
     wasSwipingRef.current = false;
     longPressTriggered.current = false;
     setIsSwiping(true);
@@ -97,7 +102,7 @@ export default function NoteCard({
     }
   };
 
-  const handleTouchEnd = () => {
+  const handleTouchEnd = (e: React.TouchEvent) => {
     setIsSwiping(false);
     if (longPressTimer.current) {
       clearTimeout(longPressTimer.current);
@@ -107,6 +112,21 @@ export default function NoteCard({
       setSwipeX(0);
       return;
     }
+
+    const endX = e.changedTouches[0].clientX;
+    const endY = e.changedTouches[0].clientY;
+    const dx = Math.abs(endX - touchStartX.current);
+    const dy = Math.abs(endY - touchStartY.current);
+    const duration = Date.now() - touchStartTime.current;
+
+    // Reliable tap detection: short duration, minimal movement in both axes
+    if (duration < 400 && dx < 10 && dy < 10) {
+      setSwipeX(0);
+      if (note.status === 'EXPANDED') onTap(note);
+      return;
+    }
+
+    // Horizontal swipe
     if (swipeX < -80) {
       setExitDir('left');
       setTimeout(() => onDelete(note.id), 280);
@@ -114,20 +134,14 @@ export default function NoteCard({
       setExitDir('right');
       setTimeout(() => onMarkDone(note.id), 280);
     } else {
-      // Treat as a tap if the finger barely moved
-      if (!wasSwipingRef.current && note.status === 'EXPANDED') {
-        onTap(note);
-      }
       setSwipeX(0);
     }
   };
 
-  // Fallback for mouse clicks on desktop (touch devices use handleTouchEnd above)
+  // Desktop mouse click fallback
   const handleClick = (e: React.MouseEvent) => {
     if ((e.nativeEvent as PointerEvent).pointerType === 'touch') return;
-    if (!wasSwipingRef.current && note.status === 'EXPANDED') {
-      onTap(note);
-    }
+    if (note.status === 'EXPANDED') onTap(note);
   };
 
   const borderColor = note.status === 'EXPANDED' ? getLeftBorderColor(note) : 'transparent';
