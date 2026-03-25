@@ -124,7 +124,7 @@ export default function NoteCard({
 
   // Fallback for mouse clicks on desktop (touch devices use handleTouchEnd above)
   const handleClick = (e: React.MouseEvent) => {
-    if (e.nativeEvent.pointerType === 'touch') return; // already handled by touchEnd
+    if ((e.nativeEvent as PointerEvent).pointerType === 'touch') return;
     if (!wasSwipingRef.current && note.status === 'EXPANDED') {
       onTap(note);
     }
