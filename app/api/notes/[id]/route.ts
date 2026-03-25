@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 
 const patchSchema = z.object({
@@ -10,6 +12,11 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ): Promise<NextResponse> {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   let body: unknown;
   try {
     body = await request.json();
@@ -27,12 +34,13 @@ export async function PATCH(
 
   const { id } = await params;
 
-  try {
-    await prisma.note.update({
-      where: { id },
-      data: { status: parsed.data.status },
-    });
-  } catch {
+  // updateMany lets us enforce ownership in the same query
+  const result = await prisma.note.updateMany({
+    where: { id, userId: session.user.id },
+    data: { status: parsed.data.status },
+  });
+
+  if (result.count === 0) {
     return NextResponse.json({ error: 'Note not found' }, { status: 404 });
   }
 

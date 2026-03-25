@@ -18,17 +18,19 @@ export default function AppShell() {
   // Load persisted notes on mount
   useEffect(() => {
     fetch('/api/notes')
-      .then(res => res.json())
-      .then(({ notes: fetched }: { notes: LocalNote[] }) => {
-        setNotes(
-          fetched.map(n => ({
-            ...n,
-            createdAt: new Date(n.createdAt),
-            dueDate: n.dueDate ? new Date(n.dueDate) : null,
-            reminderAt: n.reminderAt ? new Date(n.reminderAt) : null,
-            nudgeDates: n.nudgeDates?.map(d => new Date(d)),
-          })),
-        );
+      .then(res => {
+        if (!res.ok) return; // 401 = not signed in yet; leave notes empty
+        return res.json().then(({ notes: fetched }: { notes: LocalNote[] }) => {
+          setNotes(
+            fetched.map(n => ({
+              ...n,
+              createdAt: new Date(n.createdAt),
+              dueDate: n.dueDate ? new Date(n.dueDate) : null,
+              reminderAt: n.reminderAt ? new Date(n.reminderAt) : null,
+              nudgeDates: n.nudgeDates?.map(d => new Date(d)),
+            })),
+          );
+        });
       })
       .catch(err => console.error('[AppShell] Failed to load notes:', err));
   }, []);
