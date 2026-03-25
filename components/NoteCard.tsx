@@ -37,7 +37,7 @@ function formatDate(date: Date): string {
   tomorrow.setDate(now.getDate() + 1);
   const isTomorrow = date.toDateString() === tomorrow.toDateString();
   const time = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-  if (isToday) return time;
+  if (isToday) return `Today · ${time}`;
   if (isTomorrow) return `Tomorrow · ${time}`;
   return (
     date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) +
@@ -114,12 +114,18 @@ export default function NoteCard({
       setExitDir('right');
       setTimeout(() => onMarkDone(note.id), 280);
     } else {
+      // Treat as a tap if the finger barely moved
+      if (!wasSwipingRef.current && note.status === 'EXPANDED') {
+        onTap(note);
+      }
       setSwipeX(0);
     }
   };
 
-  const handleClick = () => {
-    if (!wasSwipingRef.current && !longPressTriggered.current && note.status === 'EXPANDED') {
+  // Fallback for mouse clicks on desktop (touch devices use handleTouchEnd above)
+  const handleClick = (e: React.MouseEvent) => {
+    if (e.nativeEvent.pointerType === 'touch') return; // already handled by touchEnd
+    if (!wasSwipingRef.current && note.status === 'EXPANDED') {
       onTap(note);
     }
   };
