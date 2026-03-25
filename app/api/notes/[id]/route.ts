@@ -8,7 +8,7 @@ const patchSchema = z.object({
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ): Promise<NextResponse> {
   let body: unknown;
   try {
@@ -25,7 +25,7 @@ export async function PATCH(
     );
   }
 
-  const { id } = params;
+  const { id } = await params;
 
   try {
     await prisma.note.update({
