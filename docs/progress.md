@@ -1,7 +1,7 @@
 # QuickNote — Session Progress
 
 > Keep this file up to date. Read it at the start of every session before touching code.
-> Last updated: session 8 (Day-grouped list view with drag-to-pull-forward; NoteCard redesign; pinnedToToday DB field)
+> Last updated: session 9 (OAuth fix; NoteDetailPanel enhancements; Recently Completed section; Correction feedback loop)
 
 ---
 
@@ -218,25 +218,18 @@ Button text changed to "Connect Google in Settings to add to Calendar".
 
 ## Next steps (in order)
 
-1. **Wire up note persistence**
-   - `POST /api/notes` — validate `{ rawContent, source }`, create `Note` row (status `PENDING`), return `noteId`
-   - `POST /api/notes/expand` — switch to `{ noteId }` flow: fetch note, expand, write back expanded fields + `NudgeSchedule` rows
-   - `AppShell.addNote` — switch from direct `/api/notes/expand` call to `/api/notes` → get `noteId` → poll or SSE for expansion result
+1. **Verify end-to-end in browser after session 9 fixes**
+   - Sign in with Google → should complete without OAuthAccountNotLinked error
+   - Submit a note → should expand via Claude, show title/category/date on card
+   - Tap a card → detail panel should show all AI fields including urgency, calendar event details
+   - Swipe left/right → should persist to DB
+   - Reload → notes still present
 
-4. **Wire up the Notes list to real data**
-   - `app/notes/page.tsx` — fetch notes for authenticated user, render `ListTab` with real data
-   - Add category filter / sort controls
+2. **Verify Correction flow**
+   - Tap a note → detail panel → "Correct this note" → type correction → Apply
+   - Note should re-expand with correction applied and update in place
 
-5. **Note detail view**
-   - Make `NoteCard` tappable → navigate to `/notes/[id]`
-   - `app/notes/[id]/page.tsx` — full expanded view, "Add to Calendar" button
-
-6. **Google Calendar integration**
-   - Fill in `lib/integrations/calendar.ts`
-   - Implement `POST /api/integrations/calendar`
-   - Silent token refresh on expiry
-
-7. **Polish & edge cases**
+3. **Polish & edge cases**
    - Delete `components/NoteInput.tsx` (superseded)
    - Whisper API fallback for browsers without Web Speech API
    - Nudge/reminder delivery mechanism (email via Gmail, or push notifications)

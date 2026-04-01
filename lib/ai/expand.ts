@@ -106,3 +106,107 @@ export async function expandNote(
   // let it bubble; callers can catch both error types separately.
   return parseExpansionResponse(textBlock.text);
 }
+
+// ---------------------------------------------------------------------------
+// Correction re-expansion
+// Builds its own user message (original note + previous AI output + correction).
+// Reuses the same system prompt and parser — no changes to prompts.ts needed.
+// ---------------------------------------------------------------------------
+
+export async function expandNoteWithCorrection(
+  rawContent: string,
+  source: NoteSource,
+  previousExpansion: ExpandedNoteFields,
+  correctionText: string,
+  now: Date = new Date(),
+  timezone?: string,
+): Promise<ExpandedNoteFields> {
+  const localTime = (() => {
+    try {
+      if (timezone) {
+        return new Intl.DateTimeFormat('en-US', {
+          timeZone: timezone,
+          year: 'numeric', month: '2-digit', day: '2-digit',
+          hour: '2-digit', minute: '2-digit', second: '2-digit',
+          hour12: false,
+        }).format(now);
+      }
+    } catch {
+      // invalid timezone — fall through to UTC only
+    }
+    return null;
+  })();
+
+  const previousJson = JSON.stringify({
+    type: previousExpansion.type,
+    category: previousExpansion.category,
+    title: previousExpansion.title,
+    description: previousExpansion.description,
+    dueDate: previousExpansion.dueDate?.toISOString() ?? null,
+    reminderAt: previousExpansion.reminderAt?.toISOString() ?? null,
+    nudgeDates: previousExpansion.nudgeDates.map(d => d.toISOString()),
+    calendarWorthy: previousExpansion.calendarWorthy,
+    suggestedEventTitle: previousExpansion.suggestedEventTitle,
+    suggestedDuration: previousExpansion.suggestedDuration,
+    suggestedAttendees: previousExpansion.suggestedAttendees,
+  }, null, 2);
+
+  const lines: string[] = [
+    `Current UTC time: ${now.toISOString()}`,
+  ];
+  if (localTime) lines.push(`User's local time: ${localTime}${timezone ? ` (${timezone})` : ''}`);
+  lines.push(
+    `Original ${source === 'AUDIO' ? 'voice' : 'text'} note:`,
+    `"""${rawContent}"""`,
+    '',
+    'Previous AI expansion:',
+    previousJson,
+    '',
+    `User correction: "${correctionText}"`,
+    '',
+    'Re-expand the note applying this correction. Return the same JSON schema.',
+  );
+
+  const userMessage = lines.join('\n');
+
+  let response: Anthropic.Message;
+
+  try {
+    response = await client.messages.create({
+      model: MODEL,
+      max_tokens: MAX_TOKENS,
+      system: EXPANSION_SYSTEM_PROMPT,
+      messages: [{ role: 'user', content: userMessage }],
+    });
+  } catch (error) {
+    if (error instanceof Anthropic.AuthenticationError) {
+      throw new NoteExpansionError('Invalid Anthropic API key — check ANTHROPIC_API_KEY in .env.local', error);
+    }
+    if (error instanceof Anthropic.RateLimitError) {
+      throw new NoteExpansionError('Anthropic API rate limit reached — retry after a short delay', error);
+    }
+    if (error instanceof Anthropic.InternalServerError) {
+      throw new NoteExpansionError('Anthropic API server error — safe to retry', error);
+    }
+    if (error instanceof Anthropic.APIError) {
+      throw new NoteExpansionError(`Anthropic API error (${error.status}): ${error.message}`, error);
+    }
+    throw new NoteExpansionError('Unexpected error calling Anthropic API', error);
+  }
+
+  if (response.stop_reason !== 'end_turn') {
+    throw new NoteExpansionError(
+      `Unexpected stop reason "${response.stop_reason}". If "max_tokens", increase MAX_TOKENS.`,
+    );
+  }
+
+  const textBlock = response.content.find(
+    (block): block is Anthropic.TextBlock => block.type === 'text',
+  );
+
+  if (!textBlock) {
+    throw new NoteExpansionError('Claude response contained no text block');
+  }
+
+  return parseExpansionResponse(textBlock.text);
+}

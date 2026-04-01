@@ -23,6 +23,7 @@ export default function AppShell() {
   const { status: sessionStatus } = useSession();
   const [activeTab, setActiveTab] = useState<Tab>('record');
   const [notes, setNotes] = useState<LocalNote[]>([]);
+  const [recentlyCompleted, setRecentlyCompleted] = useState<LocalNote[]>([]);
   const [selectedNote, setSelectedNote] = useState<LocalNote | null>(null);
   const [highlightGoogleAccount, setHighlightGoogleAccount] = useState(false);
   const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -33,8 +34,9 @@ export default function AppShell() {
     fetch('/api/notes')
       .then(res => {
         if (!res.ok) return;
-        return res.json().then(({ notes: fetched }: { notes: LocalNote[] }) => {
+        return res.json().then(({ notes: fetched, recentlyCompleted: fetchedCompleted }: { notes: LocalNote[]; recentlyCompleted: LocalNote[] }) => {
           setNotes(parseNotes(fetched));
+          setRecentlyCompleted(parseNotes(fetchedCompleted ?? []));
         });
       })
       .catch(err => console.error('[AppShell] Failed to load notes:', err));
@@ -138,6 +140,11 @@ export default function AppShell() {
     [],
   );
 
+  const handleNoteUpdated = useCallback((updated: LocalNote) => {
+    setNotes(prev => prev.map(n => n.id === updated.id ? updated : n));
+    setSelectedNote(updated);
+  }, []);
+
   const pinToToday = useCallback((id: string) => {
     setNotes(prev => prev.map(n => n.id === id ? { ...n, pinnedToToday: true } : n));
     fetch(`/api/notes/${id}`, {
@@ -156,6 +163,7 @@ export default function AppShell() {
           ) : activeTab === 'list' ? (
             <ListTab
               notes={notes}
+              recentlyCompleted={recentlyCompleted}
               onDelete={deleteNote}
               onMarkDone={markNoteDone}
               onSelect={setSelectedNote}
@@ -171,6 +179,7 @@ export default function AppShell() {
             onClose={() => setSelectedNote(null)}
             onCalendarEventCreated={handleCalendarEventCreated}
             onOpenSettings={handleOpenSettings}
+            onNoteUpdated={handleNoteUpdated}
           />
         </div>
 

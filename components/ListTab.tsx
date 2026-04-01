@@ -6,6 +6,7 @@ import NoteCard from './NoteCard';
 
 interface Props {
   notes: LocalNote[];
+  recentlyCompleted: LocalNote[];
   onDelete: (id: string) => void;
   onMarkDone: (id: string) => void;
   onSelect: (note: LocalNote) => void;
@@ -24,7 +25,6 @@ interface DragState {
   id: string;
   note: LocalNote;
   clientY: number;
-  clientX: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -124,22 +124,20 @@ function DayGroupHeader({ label, subLabel, count }: { label: string; subLabel: s
 function GhostCard({
   note,
   clientY,
-  clientX,
-  containerRef,
+  containerLeft,
+  containerWidth,
 }: {
   note: LocalNote;
   clientY: number;
-  clientX: number;
-  containerRef: React.RefObject<HTMLDivElement | null>;
+  containerLeft: number;
+  containerWidth: number;
 }) {
-  if (!containerRef.current) return null;
-  const rect = containerRef.current.getBoundingClientRect();
   return (
     <div
       className="fixed z-50 pointer-events-none"
       style={{
-        left: rect.left + 16,
-        width: rect.width - 32,
+        left: containerLeft + 16,
+        width: containerWidth - 32,
         top: clientY - 36,
         transform: 'rotate(1.5deg) scale(1.04)',
         opacity: 0.92,
@@ -160,9 +158,11 @@ function GhostCard({
 // ListTab
 // ---------------------------------------------------------------------------
 
-export default function ListTab({ notes, onDelete, onMarkDone, onSelect, onPinToToday }: Props) {
+export default function ListTab({ notes, recentlyCompleted, onDelete, onMarkDone, onSelect, onPinToToday }: Props) {
   const [dragging, setDragging] = useState<DragState | null>(null);
   const [isOverToday, setIsOverToday] = useState(false);
+  const [completedExpanded, setCompletedExpanded] = useState(false);
+  const [containerRect, setContainerRect] = useState<{ left: number; width: number } | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const todayRef = useRef<HTMLDivElement>(null);
@@ -182,9 +182,7 @@ export default function ListTab({ notes, onDelete, onMarkDone, onSelect, onPinTo
     const onMove = (e: TouchEvent) => {
       if (!draggingRef.current) return;
       e.preventDefault();
-      const touch = e.touches[0];
-      const newY = touch.clientY;
-      const newX = touch.clientX;
+      const newY = e.touches[0].clientY;
 
       // Check if finger is over the Today section
       if (todayRef.current) {
@@ -192,7 +190,7 @@ export default function ListTab({ notes, onDelete, onMarkDone, onSelect, onPinTo
         setIsOverToday(newY < rect.bottom + 24);
       }
 
-      setDragging(prev => prev ? { ...prev, clientY: newY, clientX: newX } : null);
+      setDragging(prev => prev ? { ...prev, clientY: newY } : null);
     };
 
     const onEnd = () => {
@@ -223,7 +221,11 @@ export default function ListTab({ notes, onDelete, onMarkDone, onSelect, onPinTo
   const handleLongPress = useCallback((id: string, clientY: number) => {
     const note = notes.find(n => n.id === id);
     if (!note) return;
-    setDragging({ id, note, clientY, clientX: 0 });
+    if (containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      setContainerRect({ left: rect.left, width: rect.width });
+    }
+    setDragging({ id, note, clientY });
     setIsOverToday(false);
   }, [notes]);
 
@@ -322,13 +324,49 @@ export default function ListTab({ notes, onDelete, onMarkDone, onSelect, onPinTo
         </div>
       )}
 
+      {/* Recently Completed collapsible section */}
+      {recentlyCompleted.length > 0 && (
+        <div className="px-4 pb-6">
+          <button
+            className="flex w-full items-center gap-2 px-1 py-2 text-left"
+            onClick={() => setCompletedExpanded(prev => !prev)}
+          >
+            <svg
+              width="12" height="12" viewBox="0 0 24 24" fill="none"
+              stroke="#5c5572" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+              style={{ transform: completedExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}
+            >
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+            <span className="text-[13px] font-medium text-[#5c5572]">
+              Recently Completed · {recentlyCompleted.length}
+            </span>
+          </button>
+
+          {completedExpanded && (
+            <div className="mt-1 opacity-50">
+              {recentlyCompleted.map(note => (
+                <NoteCard
+                  key={note.id}
+                  note={note}
+                  onDelete={() => {}}
+                  onMarkDone={() => {}}
+                  onTap={() => {}}
+                  isDraggable={false}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Ghost card — fixed, follows the touch */}
-      {dragging && (
+      {dragging && containerRect && (
         <GhostCard
           note={dragging.note}
           clientY={dragging.clientY}
-          clientX={dragging.clientX}
-          containerRef={containerRef}
+          containerLeft={containerRect.left}
+          containerWidth={containerRect.width}
         />
       )}
     </div>

@@ -105,6 +105,7 @@ export default function NoteCard({
     }
     if (longPressTriggered.current) {
       setSwipeX(0);
+      wasSwipingRef.current = false;
       return;
     }
     if (swipeX < -80) {
@@ -115,17 +116,18 @@ export default function NoteCard({
       setTimeout(() => onMarkDone(note.id), 280);
     } else {
       // Treat as a tap if the finger barely moved
-      if (!wasSwipingRef.current && note.status === 'EXPANDED') {
+      if (!wasSwipingRef.current && note.status !== 'PENDING') {
         onTap(note);
       }
       setSwipeX(0);
     }
+    wasSwipingRef.current = false;
   };
 
   // Fallback for mouse clicks on desktop (touch devices use handleTouchEnd above)
   const handleClick = (e: React.MouseEvent) => {
     if ((e.nativeEvent as PointerEvent).pointerType === 'touch') return;
-    if (!wasSwipingRef.current && note.status === 'EXPANDED') {
+    if (note.status !== 'PENDING') {
       onTap(note);
     }
   };

@@ -28,6 +28,7 @@ function toLocalNote(
     calendarWorthy: boolean;
     suggestedEventTitle: string | null;
     suggestedDuration: number | null;
+    suggestedAttendees: string | null;
     calendarEventId: string | null;
     pinnedToToday: boolean;
   },
@@ -48,6 +49,9 @@ function toLocalNote(
     calendarWorthy: note.calendarWorthy,
     suggestedEventTitle: note.suggestedEventTitle,
     suggestedDuration: note.suggestedDuration,
+    suggestedAttendees: note.suggestedAttendees
+      ? (JSON.parse(note.suggestedAttendees) as string[])
+      : null,
     calendarEventId: note.calendarEventId,
     pinnedToToday: note.pinnedToToday,
   };
@@ -63,13 +67,29 @@ export async function GET(): Promise<NextResponse> {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const notes = await prisma.note.findMany({
-    where: { userId: session.user.id, status: { notIn: ['DONE', 'DISMISSED'] } },
-    orderBy: { createdAt: 'desc' },
-    include: { nudgeSchedule: true },
-  });
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
-  return NextResponse.json({ notes: notes.map(toLocalNote) });
+  const [notes, recentlyCompleted] = await Promise.all([
+    prisma.note.findMany({
+      where: { userId: session.user.id, status: { notIn: ['DONE', 'DISMISSED'] } },
+      orderBy: { createdAt: 'desc' },
+      include: { nudgeSchedule: true },
+    }),
+    prisma.note.findMany({
+      where: {
+        userId: session.user.id,
+        status: { in: ['DONE', 'DISMISSED'] },
+        updatedAt: { gte: sevenDaysAgo },
+      },
+      orderBy: { updatedAt: 'desc' },
+      include: { nudgeSchedule: true },
+    }),
+  ]);
+
+  return NextResponse.json({
+    notes: notes.map(toLocalNote),
+    recentlyCompleted: recentlyCompleted.map(toLocalNote),
+  });
 }
 
 // ---------------------------------------------------------------------------

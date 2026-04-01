@@ -12,7 +12,7 @@ export type NoteType = 'TASK' | 'REMINDER' | 'EVENT' | 'INFO';
 
 export type NoteCategory = 'WORK' | 'PERSONAL' | 'HEALTH' | 'FINANCE' | 'OTHER';
 
-export type NoteStatus = 'PENDING' | 'EXPANDED' | 'DISMISSED' | 'DONE';
+export type NoteStatus = 'PENDING' | 'EXPANDED' | 'DISMISSED' | 'DONE' | 'ERROR';
 
 // ---------------------------------------------------------------------------
 // Nudge schedule
@@ -106,6 +106,7 @@ export interface LocalNote {
   calendarWorthy?: boolean;
   suggestedEventTitle?: string | null;
   suggestedDuration?: number | null;
+  suggestedAttendees?: string[] | null;
   calendarEventId?: string | null;
   // Pinned to Today via drag-to-pull-forward
   pinnedToToday?: boolean;
