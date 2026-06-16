@@ -189,11 +189,16 @@ export default function NoteCard({
             <div className="h-2 w-1/2 rounded-full bg-[#2e2b4a] animate-pulse" />
           </div>
         ) : note.status === 'ERROR' ? (
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#c94e3b]/10">
-              <span className="text-[9px] font-bold text-[#c94e3b]">!</span>
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#c94e3b]/10">
+                <span className="text-[9px] font-bold text-[#c94e3b]">!</span>
+              </div>
+              <p className="text-sm text-[#877fa0] line-clamp-1">{note.rawContent}</p>
             </div>
-            <p className="text-sm text-[#877fa0] line-clamp-1">{note.rawContent}</p>
+            {note.errorMessage && (
+              <p className="text-[10px] text-[#c94e3b]/70 pl-6 line-clamp-2">{note.errorMessage}</p>
+            )}
           </div>
         ) : (
           <div className="flex items-start gap-3">

@@ -110,6 +110,8 @@ export interface LocalNote {
   calendarEventId?: string | null;
   // Pinned to Today via drag-to-pull-forward
   pinnedToToday?: boolean;
+  // Error message for ERROR state (client-side only, not persisted)
+  errorMessage?: string;
 }
 
 // ---------------------------------------------------------------------------

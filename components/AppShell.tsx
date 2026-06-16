@@ -77,8 +77,9 @@ export default function AppShell() {
 
       if (!res.ok) {
         const errorBody = await res.json().catch(() => ({}));
+        const errorMessage = errorBody?.error ?? `HTTP ${res.status}`;
         console.error('[addNote] API error', res.status, errorBody);
-        throw new Error(`HTTP ${res.status}`);
+        throw new Error(errorMessage);
       }
 
       const { note } = (await res.json()) as { note: LocalNote };
@@ -97,9 +98,10 @@ export default function AppShell() {
         ),
       );
     } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       console.error('[addNote] Failed:', err);
       setNotes(prev =>
-        prev.map(n => (n.id === tempId ? { ...n, status: 'ERROR' as const } : n)),
+        prev.map(n => (n.id === tempId ? { ...n, status: 'ERROR' as const, errorMessage } : n)),
       );
     }
   }, []);
